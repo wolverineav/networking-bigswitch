@@ -23,10 +23,12 @@ from oslo_serialization import jsonutils
 
 from oslo_log import log
 
+from bsnstacklib.plugins.bigswitch import servermanager
 from bsnstacklib.plugins.bigswitch.extensions import networktemplates
 
 from bsnstacklib.plugins.bigswitch.db import network_template_db
 from bsnstacklib.plugins.bigswitch.db import reachability_test_db
+from bsnstacklib.plugins.bigswitch import servermanager
 
 LOG = log.getLogger(__name__)
 
@@ -35,6 +37,11 @@ class NetworkTemplatesPlugin(service_base.ServicePluginBase,
                              common_db_mixin.CommonDbMixin):
 
     supported_extension_aliases = ["network-templates"]
+
+    def __init__(self):
+        super(NetworkTemplatesPlugin, self).__init__()
+        # initialize BCF server handler
+        self.servers = servermanager.ServerPool.get_instance()
 
     def get_plugin_type(self):
         # Tell Neutron this is a network template plugin
