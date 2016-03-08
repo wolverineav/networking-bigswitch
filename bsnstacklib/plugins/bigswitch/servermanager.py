@@ -33,11 +33,11 @@ import ssl
 import time
 import weakref
 
-from neutron._i18n import _
-from neutron._i18n import _LE
-from neutron._i18n import _LI
-from neutron._i18n import _LW
 from neutron.common import exceptions
+from neutron.i18n import _
+from neutron.i18n import _LE
+from neutron.i18n import _LI
+from neutron.i18n import _LW
 
 from oslo_log import log as logging
 
