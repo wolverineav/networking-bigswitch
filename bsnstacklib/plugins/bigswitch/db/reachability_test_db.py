@@ -18,6 +18,7 @@ from neutron.db import common_db_mixin
 from neutron.db import model_base
 from neutron.i18n import _
 from oslo_serialization import jsonutils
+from oslo_utils import uuidutils
 
 import sqlalchemy as sa
 from sqlalchemy.dialects.mysql.base import VARCHAR
@@ -43,13 +44,14 @@ class JSONEncodedDict(TypeDecorator):
         return value
 
 
-class ReachabilityTest(model_base.BASEV2,
-                       model_base.HasId,
-                       model_base.HasTenant):
+class ReachabilityTest(model_base.BASEV2):
     '''
     A table to store user configured reachability tests.
     '''
     __tablename__ = 'reachabilitytest'
+    id = sa.Column(sa.String(36), primary_key=True,
+                   default=uuidutils.generate_uuid)
+    tenant_id = sa.Column(sa.String(255), nullable=False, unique=True)
     name = sa.Column(sa.String(64), nullable=False, unique=True)
     src_tenant_name = sa.Column(sa.String(255), nullable=False)
     src_segment_name = sa.Column(sa.String(255), nullable=False)
@@ -168,13 +170,14 @@ class ReachabilityTestDbMixin(common_db_mixin.CommonDbMixin):
             context.session.delete(reachabilitytest)
 
 
-class ReachabilityQuickTest(model_base.BASEV2,
-                            model_base.HasId,
-                            model_base.HasTenant):
+class ReachabilityQuickTest(model_base.BASEV2):
     '''
     A table to store user configured reachability quick tests.
     '''
     __tablename__ = 'reachabilityquicktest'
+    id = sa.Column(sa.String(36), primary_key=True,
+                   default=uuidutils.generate_uuid)
+    tenant_id = sa.Column(sa.String(255), nullable=False, unique=True)
     name = sa.Column(sa.String(64), nullable=False, unique=True)
     src_tenant_name = sa.Column(sa.String(255), nullable=False)
     src_segment_name = sa.Column(sa.String(255), nullable=False)

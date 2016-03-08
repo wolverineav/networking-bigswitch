@@ -18,13 +18,16 @@ from neutron.db import common_db_mixin
 from neutron.db import model_base
 from neutron.i18n import _
 from oslo_db import exception as db_exc
+from oslo_utils import uuidutils
 import sqlalchemy as sa
 from sqlalchemy.orm import exc
 
 
-class NetworkTemplate(model_base.BASEV2, model_base.HasId):
+class NetworkTemplate(model_base.BASEV2):
     __tablename__ = 'networktemplates'
     __table_args__ = {'extend_existing': True}
+    id = sa.Column(sa.String(36), primary_key=True,
+                   default=uuidutils.generate_uuid)
     body = sa.Column(sa.Text(), nullable=False)
     name = sa.Column(sa.String(255), nullable=False, unique=True)
 
@@ -84,9 +87,11 @@ class NetworkTemplateDbMixin(common_db_mixin.CommonDbMixin):
         return self._make_networktemplate_dict(networktemplate)
 
 
-class NetworkTemplateAssignment(model_base.BASEV2, model_base.HasId):
+class NetworkTemplateAssignment(model_base.BASEV2):
     __tablename__ = 'networktemplateassignments'
     __table_args__ = {'extend_existing': True}
+    id = sa.Column(sa.String(36), primary_key=True,
+                   default=uuidutils.generate_uuid)
     tenant_id = sa.Column(sa.String(255), nullable=False, unique=True)
     template_id = sa.Column(sa.Integer, sa.ForeignKey('networktemplates.id'),
                             nullable=False)
