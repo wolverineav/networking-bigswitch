@@ -1,4 +1,3 @@
-# Copyright 2014 Big Switch Networks, Inc.
 # All Rights Reserved.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -12,13 +11,20 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
+import oslo_i18n
+
+_translators = oslo_i18n.TranslatorFactory(domain='neutron')
+
+# The primary translation function using the well-known name "_"
+_ = _translators.primary
+
+# Translators for log levels.
 #
-
-from bsnstacklib.plugins.bigswitch.db import network_template_db  # noqa
-from bsnstacklib.plugins.bigswitch.db import reachability_test_db  # noqa
-from bsnstacklib.plugins.bigswitch.db import routerrule_db  # noqa
-from neutron.db.migration.models import head
-
-
-def get_metadata():
-    return head.model_base.BASEV2.metadata
+# The abbreviated names are meant to reflect the usual use of a short
+# name like '_'. The "L" is for "log" and the other letter comes from
+# the level.
+_LI = _translators.log_info
+_LW = _translators.log_warning
+_LE = _translators.log_error
+_LC = _translators.log_critical

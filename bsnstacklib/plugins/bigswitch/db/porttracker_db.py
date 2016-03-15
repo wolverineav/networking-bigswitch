@@ -15,7 +15,8 @@
 from oslo_log import log as logging
 
 from neutron.api.v2 import attributes
-from neutron.i18n import _LW
+
+from bsnstacklib.plugins.bigswitch.i18n import _LW
 
 LOG = logging.getLogger(__name__)
 
