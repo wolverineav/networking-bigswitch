@@ -19,13 +19,13 @@ from sqlalchemy import orm
 from neutron.db import model_base
 
 
-class RouterRule(model_base.BASEV2):
+class BsnRouterRule(model_base.BASEV2):
     __tablename__ = 'bsn_routerrules'
     id = sa.Column(sa.Integer, primary_key=True)
     priority = sa.Column(sa.Integer, nullable=False)
     source = sa.Column(sa.String(64), nullable=False)
     destination = sa.Column(sa.String(64), nullable=False)
-    nexthops = orm.relationship('NextHop', cascade='all,delete')
+    nexthops = orm.relationship('BsnNextHop', cascade='all,delete')
     action = sa.Column(sa.String(10), nullable=False)
     router_id = sa.Column(sa.String(36),
                           sa.ForeignKey('routers.id',
@@ -35,7 +35,7 @@ class RouterRule(model_base.BASEV2):
         unique_together = ('priority', 'router_id')
 
 
-class NextHop(model_base.BASEV2):
+class BsnNextHop(model_base.BASEV2):
     __tablename__ = 'bsn_nexthops'
     rule_id = sa.Column(sa.Integer,
                         sa.ForeignKey('bsn_routerrules.id',
