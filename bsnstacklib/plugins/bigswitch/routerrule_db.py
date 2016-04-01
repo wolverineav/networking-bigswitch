@@ -13,6 +13,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from bsnstacklib._i18n import _
 from bsnstacklib.plugins.bigswitch.db import routerrule_db
 from bsnstacklib.plugins.bigswitch.extensions import routerrule
 import itertools

@@ -32,9 +32,9 @@ from neutron.extensions import l3
 from neutron import manager
 from neutron.plugins.common import constants
 
+from bsnstacklib._i18n import _
+from bsnstacklib._i18n import _LE
 from bsnstacklib.plugins.bigswitch import extensions
-from bsnstacklib.plugins.bigswitch.i18n import _
-from bsnstacklib.plugins.bigswitch.i18n import _LE
 from bsnstacklib.plugins.bigswitch import plugin as cplugin
 from bsnstacklib.plugins.bigswitch import routerrule_db
 from bsnstacklib.plugins.bigswitch import servermanager

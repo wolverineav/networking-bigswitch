@@ -25,8 +25,8 @@ import sqlalchemy as sa
 
 from neutron.db import model_base
 
-from bsnstacklib.plugins.bigswitch.i18n import _LI
-from bsnstacklib.plugins.bigswitch.i18n import _LW
+from bsnstacklib._i18n import _LI
+from bsnstacklib._i18n import _LW
 
 LOG = logging.getLogger(__name__)
 # Maximum time in seconds to wait for a single record lock to be released

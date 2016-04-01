@@ -37,11 +37,11 @@ from neutron.common import exceptions
 
 from oslo_log import log as logging
 
+from bsnstacklib._i18n import _
+from bsnstacklib._i18n import _LE
+from bsnstacklib._i18n import _LI
+from bsnstacklib._i18n import _LW
 from bsnstacklib.plugins.bigswitch.db import consistency_db as cdb
-from bsnstacklib.plugins.bigswitch.i18n import _
-from bsnstacklib.plugins.bigswitch.i18n import _LE
-from bsnstacklib.plugins.bigswitch.i18n import _LI
-from bsnstacklib.plugins.bigswitch.i18n import _LW
 import eventlet
 import eventlet.corolocal
 from keystoneclient.v2_0 import client as ksclient

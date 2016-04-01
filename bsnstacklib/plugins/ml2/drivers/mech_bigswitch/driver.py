@@ -34,11 +34,11 @@ from neutron import manager
 from neutron.plugins.common import constants as pconst
 from neutron.plugins.ml2 import driver_api as api
 
+from bsnstacklib._i18n import _
+from bsnstacklib._i18n import _LE
+from bsnstacklib._i18n import _LW
 from bsnstacklib.plugins.bigswitch import config as pl_config
 from bsnstacklib.plugins.bigswitch.db import consistency_db as cdb
-from bsnstacklib.plugins.bigswitch.i18n import _
-from bsnstacklib.plugins.bigswitch.i18n import _LE
-from bsnstacklib.plugins.bigswitch.i18n import _LW
 from bsnstacklib.plugins.bigswitch import plugin
 from bsnstacklib.plugins.bigswitch import servermanager
 

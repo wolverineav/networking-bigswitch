@@ -13,8 +13,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from bsnstacklib._i18n import _
 from neutronclient.common import extension
-from neutronclient.i18n import _
 
 
 # network templates
