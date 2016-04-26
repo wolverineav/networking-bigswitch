@@ -407,6 +407,9 @@ class RouterRule_db_mixin(l3_db.L3_NAT_db_mixin):
                 context.session.delete(identical_rule)
 
             # query again, since some rules may have been deleted
+            old_rules = (context.session.query(RouterRule)
+                         .filter_by(router_id=router['id']).all())
+
             # lazy flush takes care of the delete
             same_action_rules = self._get_same_action_rules(
                 old_rules, new_rule.action)
@@ -438,7 +441,7 @@ class RouterRule_db_mixin(l3_db.L3_NAT_db_mixin):
                                                                    old_rules)
                 for rule in reverse_action_rules:
                     if self._rule_a_obstructs_rule_b(rule_a=rule,
-                                                     rule_b=new_rule):
+                                                     rule_b=rule_obj):
                         # apply new rule
                         LOG.debug('Higher priority opposite rule exists, '
                                   'applying the new rule: %s' % new_rule)
