@@ -410,17 +410,21 @@ class RouterRule_db_mixin(l3_db.L3_NAT_db_mixin):
             # lazy flush takes care of the delete
             same_action_rules = self._get_same_action_rules(
                 old_rules, new_rule.action)
+            # sort same action rules with high->low priority i.e. lower number
+            # first
+            sorted_same_action_rules = sorted(same_action_rules,
+                                              key=lambda k: k['priority'])
 
             # default is apply_rule
             apply_rule, rule_obj = True, new_rule
-            for old_rule in same_action_rules:
+            for old_rule in sorted_same_action_rules:
                 if self._rule_a_superset_rule_b(rule_a=old_rule,
                                                 rule_b=new_rule):
                     apply_rule, rule_obj = False, old_rule
                     LOG.debug('Found existing superset rule: %s' % old_rule)
                     break
             if apply_rule:
-                for old_rule in same_action_rules:
+                for old_rule in sorted_same_action_rules:
                     if self._rule_a_superset_rule_b(rule_a=new_rule,
                                                     rule_b=old_rule):
                         # remove old_rule
