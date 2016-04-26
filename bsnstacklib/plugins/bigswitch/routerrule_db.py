@@ -208,6 +208,22 @@ class RouterRule_db_mixin(l3_db.L3_NAT_db_mixin):
 
         return False, None
 
+    def _identical_rule_exists(self, context, old_rules, new_rule):
+        """Check if rule exists with same action and exact same source
+        and destination
+        """
+        sorted_rules = sorted(old_rules, key=lambda k: k.priority,
+                              reverse=True)
+        for old_rule in sorted_rules:
+            if (old_rule.priority >= new_rule.priority
+                and old_rule.source == new_rule.source
+                and old_rule.destination == new_rule.destination
+                and old_rule.action == new_rule.action):
+
+                return True, old_rule
+
+        return False, None
+
     def _filter_opposite_rules(self, new_rule, rules):
         """Get list of rules with opposite action and higher priority i.e.
         lower priority number
@@ -382,6 +398,13 @@ class RouterRule_db_mixin(l3_db.L3_NAT_db_mixin):
                 # remove opposite
                 LOG.debug('Removing exact opposite rule: %s' % opp_rule)
                 context.session.delete(opp_rule)
+
+            # exact same rule with lower priority
+            identical_exists, identical_rule = self._identical_rule_exists(
+                context, old_rules, new_rule)
+            if identical_exists:
+                LOG.debug('Removing identical rule: %s' % identical_rule)
+                context.session.delete(identical_rule)
 
             # query again, since some rules may have been deleted
             # lazy flush takes care of the delete
