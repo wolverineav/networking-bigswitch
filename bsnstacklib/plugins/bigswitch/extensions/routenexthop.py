@@ -96,7 +96,7 @@ def _validate_uniqueroutes(routes):
         raise nexception.InvalidInput(error_message=error)
 
 
-class Routerrule(ExtensionDescriptor):
+class Routenexthop(ExtensionDescriptor):
 
     @classmethod
     def get_name(cls):
@@ -104,19 +104,19 @@ class Routerrule(ExtensionDescriptor):
 
     @classmethod
     def get_alias(cls):
-        return "router_rules"
+        return "routes"
 
     @classmethod
     def get_description(cls):
-        return "Router rule configuration for L3 router"
+        return "Route nexthop configuration for L3 router"
 
     @classmethod
     def get_namespace(cls):
-        return "http://docs.openstack.org/ext/neutron/routerrules/api/v1.0"
+        return "http://docs.openstack.org/ext/neutron/routes/api/v1.0"
 
     @classmethod
     def get_updated(cls):
-        return "2013-05-23T10:00:00-00:00"
+        return "2016-07-11T10:00:00-00:00"
 
     def get_extended_resources(self, version):
         if version == "2.0":

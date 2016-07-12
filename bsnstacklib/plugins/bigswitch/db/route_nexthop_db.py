@@ -34,7 +34,7 @@ class BsnRoute(model_base.BASEV2):
                           sa.ForeignKey('routers.id',
                                         ondelete="CASCADE"))
     destination = sa.Column(sa.String(64), nullable=False, unique=True)
-    nexthops = orm.relationship('BsnNextHop',
+    nexthops = orm.relationship('BsnRouteNextHop',
                                 cascade='all,delete,delete-orphan')
 
     class Meta(object):
