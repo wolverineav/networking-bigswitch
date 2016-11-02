@@ -14,6 +14,8 @@
 #    under the License.
 
 import sqlalchemy as sa
+from oslo_config import cfg
+from oslo_db.sqlalchemy import session
 from oslo_log import log as logging
 from sqlalchemy.types import Enum
 
@@ -31,17 +33,20 @@ class NameCache(model_base.BASEV2):
     obj_type = sa.Column(Enum("tenant",
                               "network",
                               "security_group",
-                              name="obj_type"), nullable=False)
+                              name="obj_type"),
+                         nullable=False, primary_key=True)
     # name and name_nospace both aren't unique, but the composite obj with
     # the whole row is unique
-    name = sa.Column(sa.String(255), nullable=False, unique=False)
-    name_nospace = sa.Column(sa.String(255), nullable=False, unique=False)
+    name = sa.Column(sa.String(255), nullable=False, unique=False,
+                     primary_key=True)
+    name_nospace = sa.Column(sa.String(255), nullable=False, unique=False,
+                             primary_key=True)
 
     class Meta(object):
         unique_together = ('obj_type', 'name', 'name_nospace')
 
 
-class NameCacheHandler(model_base.BASEV2):
+class NameCacheHandler(object):
     '''
     A wrapper object to keep track of the session between the read
     and the update operations.
