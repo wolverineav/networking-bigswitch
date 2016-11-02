@@ -21,10 +21,11 @@ from neutron.db import model_base
 
 LOG = logging.getLogger(__name__)
 
-
-# This table is used to cache names of various objects that have <space> in
-# their names.
 class NameCache(model_base.BASEV2):
+    '''
+    This table is used to cache names of various objects that have <space> in
+    their names.
+    '''
     __tablename__ = 'bsn_namecache'
     # this is an enum specifying the type of object being renamed
     obj_type = sa.Column(Enum("tenant",
@@ -38,3 +39,68 @@ class NameCache(model_base.BASEV2):
 
     class Meta(object):
         unique_together = ('obj_type', 'name', 'name_nospace')
+
+
+class NameCacheHandler(model_base.BASEV2):
+    '''
+    A wrapper object to keep track of the session between the read
+    and the update operations.
+
+    This class needs an SQL engine completely independent of the main
+    neutron connection so rollbacks from consistency hash operations don't
+    affect the parent sessions.
+
+    Similar to HashHandler for ConsistencyDb
+    '''
+    _FACADE = None
+
+    def __init__(self):
+        # create a session for accessing the namecache objects from the DB
+        if NameCacheHandler._FACADE is None:
+            NameCacheHandler._FACADE = session.EngineFacade.from_config(
+                cfg.CONF, sqlite_fk=True)
+        self.session = (NameCacheHandler._FACADE
+                        .get_session(autocommit=True, expire_on_commit=False))
+
+    # this will try and update the cache with the object specified
+    # returns a tuple (bool success, string name_nospace)
+    def create(self, obj_type, name):
+        # try the update here:
+        with self.session.begin(subtransactions=True):
+            name_nospace = ''
+            if name is not None:
+                name_nospace = name.replace(' ', '_')
+            namecache_obj = NameCache(obj_type=obj_type, name=name,
+                                      name_nospace=name_nospace)
+            try:
+                self.session.add(namecache_obj)
+                self.session.commit()
+                return namecache_obj
+            except:
+                self.session.rollback()
+                return None
+
+    # given the obj type and name_nospace, return a tuple
+    # (bool success, string name)
+    def get(self, obj_type, name_nospace):
+        # try and return the mapping if available:
+        with self.session.begin(subtransactions=True):
+            try:
+                result = (self.session.query(NameCache)
+                          .filter_by(obj_type=obj_type,
+                                     name_nospace=name_nospace)
+                          .first())
+                return result
+            except:
+                return None
+
+    def delete(self, obj_type, name_nospace):
+        with self.session.begin(subtransaction=True):
+            try:
+                namespace_obj = self.get(obj_type, name_nospace)
+                if not namespace_obj:
+                    return
+                self.session.delete(namespace_obj)
+                self.session.commit()
+            except:
+                self.session.rollback()

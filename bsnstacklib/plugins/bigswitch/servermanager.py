@@ -39,6 +39,7 @@ from neutron.common import exceptions
 from oslo_log import log as logging
 
 from bsnstacklib.plugins.bigswitch.db import consistency_db as cdb
+from bsnstacklib.plugins.bigswitch.db import namecache_db
 from bsnstacklib.plugins.bigswitch.i18n import _
 from bsnstacklib.plugins.bigswitch.i18n import _LE
 from bsnstacklib.plugins.bigswitch.i18n import _LI
@@ -332,6 +333,8 @@ class ServerPool(object):
         # The cache is maintained in a separate thread and sync'ed with
         # Keystone periodically.
         self.keystone_tenants = {}
+        # cache to map Openstack object names to their non-space BCF form
+        self.namecachedb = namecache_db.NameCacheHandler()
         self._update_tenant_cache(reconcile=False)
         self.timeout = cfg.CONF.RESTPROXY.server_timeout
         self.always_reconnect = not cfg.CONF.RESTPROXY.cache_connections
