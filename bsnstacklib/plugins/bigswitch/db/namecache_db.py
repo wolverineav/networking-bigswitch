@@ -105,7 +105,7 @@ class NameCacheHandler(object):
                 return None
 
     def delete(self, obj_type, obj_id):
-        with self.session.begin(subtransaction=True):
+        with self.session.begin(subtransactions=True):
             try:
                 namespace_obj = self.get(obj_type, obj_id)
                 if not namespace_obj:
