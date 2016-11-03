@@ -16,7 +16,7 @@
 """add bsn name cache
 
 Revision ID: e6cb930d25de
-Revises: 8f6787d31990
+Revises: 1ef57200f387
 Create Date: 2016-10-24 12:03:09.991235
 
 """
