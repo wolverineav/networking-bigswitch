@@ -14,14 +14,16 @@
 #    under the License.
 
 import sqlalchemy as sa
+
+from neutron.db import model_base
 from oslo_config import cfg
+from oslo_db import exception as db_exc
 from oslo_db.sqlalchemy import session
 from oslo_log import log as logging
 from sqlalchemy.types import Enum
 
-from neutron.db import model_base
-
 LOG = logging.getLogger(__name__)
+
 
 class NameCache(model_base.BASEV2):
     '''
@@ -35,15 +37,15 @@ class NameCache(model_base.BASEV2):
                               "security_group",
                               name="obj_type"),
                          nullable=False, primary_key=True)
+    # uuid for the given obj type
+    obj_id = sa.Column(sa.String(36), nullable=False, primary_key=True)
     # name and name_nospace both aren't unique, but the composite obj with
     # the whole row is unique
-    name = sa.Column(sa.String(255), nullable=False, unique=False,
-                     primary_key=True)
-    name_nospace = sa.Column(sa.String(255), nullable=False, unique=False,
-                             primary_key=True)
+    name = sa.Column(sa.String(255), nullable=False, unique=False)
+    name_nospace = sa.Column(sa.String(255), nullable=False, unique=False)
 
     class Meta(object):
-        unique_together = ('obj_type', 'name', 'name_nospace')
+        unique_together = ('obj_type', 'obj_id')
 
 
 class NameCacheHandler(object):
@@ -69,25 +71,27 @@ class NameCacheHandler(object):
 
     # this will try and update the cache with the object specified
     # returns a tuple (bool success, string name_nospace)
-    def create(self, obj_type, name):
-        # try the update here:
-        with self.session.begin(subtransactions=True):
-            name_nospace = ''
-            if name is not None:
-                name_nospace = name.replace(' ', '_')
-            namecache_obj = NameCache(obj_type=obj_type, name=name,
-                                      name_nospace=name_nospace)
-            try:
+    def create(self, obj_type, obj_id, name):
+        name_nospace = ''
+        if name is not None:
+            name_nospace = name.replace(' ', '_')
+        namecache_obj = NameCache(obj_type=obj_type, obj_id=obj_id, name=name,
+                                  name_nospace=name_nospace)
+        try:
+            with self.session.begin(subtransactions=True):
+                LOG.debug("creating object namecache with %s" %
+                          str(namecache_obj))
                 self.session.add(namecache_obj)
-                self.session.commit()
                 return namecache_obj
-            except:
-                self.session.rollback()
-                return None
+        except db_exc.DBDuplicateEntry:
+            # topo sync is calling create again. obj exists, proceed as usual
+            return namecache_obj
+        except Exception as e:
+            LOG.debug('exception while create ' + str(e))
+            raise e
 
-    # given the obj type and name_nospace, return a tuple
-    # (bool success, string name)
-    def get(self, obj_type, name_nospace):
+    # given the obj type and obj_id, return the unique object or None
+    def get(self, obj_type, obj_id):
         # try and return the mapping if available:
         with self.session.begin(subtransactions=True):
             try:
@@ -95,17 +99,19 @@ class NameCacheHandler(object):
                           .filter_by(obj_type=obj_type,
                                      name_nospace=name_nospace)
                           .first())
+                LOG.debug("returning a namecache object %s" % result)
                 return result
-            except:
+            except Exception:
                 return None
 
-    def delete(self, obj_type, name_nospace):
+    def delete(self, obj_type, obj_id):
         with self.session.begin(subtransaction=True):
             try:
-                namespace_obj = self.get(obj_type, name_nospace)
+                namespace_obj = self.get(obj_type, obj_id)
                 if not namespace_obj:
+                    # object does not exist, return
                     return
                 self.session.delete(namespace_obj)
-                self.session.commit()
-            except:
-                self.session.rollback()
+            except Exception as e:
+                LOG.debug('exception while delete ' + str(e))
+                raise e

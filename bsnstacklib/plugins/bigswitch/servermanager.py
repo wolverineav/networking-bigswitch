@@ -686,6 +686,8 @@ class ServerPool(object):
         if not tenant_name:
             raise TenantIDNotFound(tenant=tenant_id)
 
+        self.namecachedb.create('tenant', tenant_id, tenant_name)
+
         resource = TENANT_RESOURCE_PATH
         data = {"tenant_id": tenant_id, 'tenant_name': tenant_name}
         errstr = _("Unable to create tenant: %s")
