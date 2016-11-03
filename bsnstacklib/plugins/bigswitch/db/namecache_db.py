@@ -45,7 +45,7 @@ class NameCache(model_base.BASEV2):
     name_nospace = sa.Column(sa.String(255), nullable=False, unique=False)
 
     class Meta(object):
-        unique_together = ('obj_type', 'obj_id')
+        unique_together = ('obj_type', 'name_nospace')
 
 
 class NameCacheHandler(object):

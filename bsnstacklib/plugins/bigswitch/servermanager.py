@@ -728,6 +728,8 @@ class ServerPool(object):
         self.rest_action('DELETE', resource, errstr=errstr)
 
     def rest_create_network(self, tenant_id, network):
+        LOG.debug('creating network %s', network)
+        # self.namecachedb.create('network', network['id'], network['name'])
         resource = NET_RESOURCE_PATH % tenant_id
         data = {"network": network}
         errstr = _("Unable to create remote network: %s")

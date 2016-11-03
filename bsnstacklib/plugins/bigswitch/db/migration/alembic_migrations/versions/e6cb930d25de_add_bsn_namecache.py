@@ -42,7 +42,9 @@ def upgrade():
         sa.Column('obj_id', sa.String(length=36), nullable=False),
         sa.Column('name', sa.String(255), nullable=False),
         sa.Column('name_nospace', sa.String(255), nullable=False),
-        sa.PrimaryKeyConstraint('obj_type', 'obj_id', name='bsn_namecache_pk'))
+        sa.PrimaryKeyConstraint('obj_type', 'obj_id', name='bsn_namecache_pk'),
+        sa.UniqueConstraint('obj_type', 'name_nospace',
+                            name='bsn_namecache_name_uk'))
 
 
 def downgrade():
