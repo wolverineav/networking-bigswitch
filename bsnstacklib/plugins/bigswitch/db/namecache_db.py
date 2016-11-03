@@ -97,7 +97,7 @@ class NameCacheHandler(object):
             try:
                 result = (self.session.query(NameCache)
                           .filter_by(obj_type=obj_type,
-                                     name_nospace=name_nospace)
+                                     obj_id=obj_id)
                           .first())
                 LOG.debug("returning a namecache object %s" % result)
                 return result
@@ -110,6 +110,7 @@ class NameCacheHandler(object):
                 namespace_obj = self.get(obj_type, obj_id)
                 if not namespace_obj:
                     # object does not exist, return
+                    LOG.debug('obj not found. nothing to delete')
                     return
                 self.session.delete(namespace_obj)
             except Exception as e:

@@ -694,6 +694,7 @@ class ServerPool(object):
         self.rest_action('POST', resource, data, errstr)
 
     def rest_delete_tenant(self, tenant_id):
+        self.namecachedb.delete('tenant', tenant_id)
         resource = TENANT_PATH % tenant_id
         errstr = _("Unable to delete tenant: %s")
         self.rest_action('DELETE', resource, errstr=errstr)
