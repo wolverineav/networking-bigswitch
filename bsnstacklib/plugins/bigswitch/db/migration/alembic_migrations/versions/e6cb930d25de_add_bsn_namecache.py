@@ -30,15 +30,13 @@ depends_on = None
 import sqlalchemy as sa
 
 from alembic import op
-from sqlalchemy.types import Enum
+from bsnstacklib.plugins.bigswitch.db.namecache_db import ObjTypeEnum
 
 
 def upgrade():
     op.create_table(
         'bsn_namecache',
-        sa.Column('obj_type', Enum("tenant", "network",
-                                   "security_group", name="obj_type"),
-                  nullable=False),
+        sa.Column('obj_type', ObjTypeEnum(name="obj_type"), nullable=False),
         sa.Column('obj_id', sa.String(length=36), nullable=False),
         sa.Column('name', sa.String(255), nullable=False),
         sa.Column('name_nospace', sa.String(255), nullable=False),

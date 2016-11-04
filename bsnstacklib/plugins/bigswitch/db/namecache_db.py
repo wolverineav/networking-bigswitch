@@ -25,6 +25,13 @@ from sqlalchemy.types import Enum
 LOG = logging.getLogger(__name__)
 
 
+class ObjTypeEnum(Enum):
+    network = "network"
+    router = "router"
+    security_group = "security_group"
+    tenant = "tenant"
+
+
 class NameCache(model_base.BASEV2):
     '''
     This table is used to cache names of various objects that have <space> in
@@ -32,11 +39,8 @@ class NameCache(model_base.BASEV2):
     '''
     __tablename__ = 'bsn_namecache'
     # this is an enum specifying the type of object being renamed
-    obj_type = sa.Column(Enum("tenant",
-                              "network",
-                              "security_group",
-                              name="obj_type"),
-                         nullable=False, primary_key=True)
+    obj_type = sa.Column(ObjTypeEnum(name="obj_type"), nullable=False,
+                         primary_key=True)
     # uuid for the given obj type
     obj_id = sa.Column(sa.String(36), nullable=False, primary_key=True)
     # name and name_nospace both aren't unique, but the composite obj with

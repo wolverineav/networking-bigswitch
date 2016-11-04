@@ -40,6 +40,7 @@ from oslo_log import log as logging
 
 from bsnstacklib.plugins.bigswitch.db import consistency_db as cdb
 from bsnstacklib.plugins.bigswitch.db import namecache_db
+from bsnstacklib.plugins.bigswitch.db.namecache_db import ObjTypeEnum
 from bsnstacklib.plugins.bigswitch.i18n import _
 from bsnstacklib.plugins.bigswitch.i18n import _LE
 from bsnstacklib.plugins.bigswitch.i18n import _LI
@@ -686,7 +687,11 @@ class ServerPool(object):
         if not tenant_name:
             raise TenantIDNotFound(tenant=tenant_id)
 
-        self.namecachedb.create('tenant', tenant_id, tenant_name)
+        namecache_tenant = self.namecachedb.create(ObjTypeEnum.tenant,
+                                                   tenant_id,
+                                                   tenant_name)
+        #if namecache_tenant:
+        #    tenant_name = namecache_tenant.name_nospace
 
         resource = TENANT_RESOURCE_PATH
         data = {"tenant_id": tenant_id, 'tenant_name': tenant_name}
@@ -694,7 +699,8 @@ class ServerPool(object):
         self.rest_action('POST', resource, data, errstr)
 
     def rest_delete_tenant(self, tenant_id):
-        self.namecachedb.delete('tenant', tenant_id)
+        self.namecachedb.delete(ObjTypeEnum.tenant, tenant_id)
+
         resource = TENANT_PATH % tenant_id
         errstr = _("Unable to delete tenant: %s")
         self.rest_action('DELETE', resource, errstr=errstr)
@@ -729,7 +735,9 @@ class ServerPool(object):
 
     def rest_create_network(self, tenant_id, network):
         LOG.debug('creating network %s', network)
-        # self.namecachedb.create('network', network['id'], network['name'])
+        self.namecachedb.create(ObjTypeEnum.network, network['id'],
+                                network['name'])
+
         resource = NET_RESOURCE_PATH % tenant_id
         data = {"network": network}
         errstr = _("Unable to create remote network: %s")
@@ -742,6 +750,9 @@ class ServerPool(object):
         self.rest_action('PUT', resource, data, errstr)
 
     def rest_delete_network(self, tenant_id, net_id):
+        LOG.debug('deleting network %s', net_id)
+        self.namecachedb.delete(ObjTypeEnum.network, net_id)
+
         resource = NETWORKS_PATH % (tenant_id, net_id)
         errstr = _("Unable to delete remote network: %s")
         self.rest_action('DELETE', resource, errstr=errstr)
