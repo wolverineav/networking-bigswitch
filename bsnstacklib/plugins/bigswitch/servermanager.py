@@ -774,12 +774,22 @@ class ServerPool(object):
         self.rest_action('DELETE', resource, errstr=errstr)
 
     def rest_create_securitygroup(self, sg):
+        LOG.debug('creating security group %s' % sg)
+        sg_namecache = self.namecachedb.create(ObjTypeEnum.security_group,
+                                               sg['id'], sg['name'])
+        if sg_namecache:
+            sg_name = sg_namecache.name_nospace
+            sg['name'] = sg_name
+
         resource = SECURITY_GROUP_RESOURCE_PATH
         data = {"security-group": sg}
         errstr = _("Unable to create security group: %s")
         self.rest_action('POST', resource, data, errstr)
 
     def rest_delete_securitygroup(self, sg_id):
+        LOG.debug('deleting security group from namecache %s' % sg_id)
+        self.namecachedb.delete(ObjTypeEnum.security_group, sg_id)
+
         resource = SECURITY_GROUP_PATH % sg_id
         errstr = _("Unable to delete security group: %s")
         self.rest_action('DELETE', resource, errstr=errstr)
