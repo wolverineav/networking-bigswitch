@@ -753,12 +753,11 @@ class ServerPool(object):
 
     def rest_update_network(self, tenant_id, net_id, network):
         LOG.debug('updating network %s', network)
-        network_name = self.namecachedb.create(ObjTypeEnum.network,
-                                               network['id'], network['name'])
 
-        if network_name:
-            LOG.debug('network name to controller is without space %s' %
-                      network_name)
+        network_namecache = self.namecachedb.get(ObjTypeEnum.network, net_id)
+        if network_namecache:
+            network_name = network_namecache.name_nospace
+            LOG.debug('existing network name is %s' % network_name)
             network['name'] = network_name
 
         resource = NETWORKS_PATH % (tenant_id, net_id)
