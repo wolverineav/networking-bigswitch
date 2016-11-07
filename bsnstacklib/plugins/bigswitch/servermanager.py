@@ -690,8 +690,10 @@ class ServerPool(object):
         namecache_tenant = self.namecachedb.create(ObjTypeEnum.tenant,
                                                    tenant_id,
                                                    tenant_name)
-        #if namecache_tenant:
-        #    tenant_name = namecache_tenant.name_nospace
+        if namecache_tenant:
+            LOG.debug('tenant name to controller is without space %s' %
+                      tenant_name)
+            tenant_name = namecache_tenant.name_nospace
 
         resource = TENANT_RESOURCE_PATH
         data = {"tenant_id": tenant_id, 'tenant_name': tenant_name}
@@ -699,6 +701,7 @@ class ServerPool(object):
         self.rest_action('POST', resource, data, errstr)
 
     def rest_delete_tenant(self, tenant_id):
+        LOG.debug('deleting tenant from namecache %s' % tenant_id)
         self.namecachedb.delete(ObjTypeEnum.tenant, tenant_id)
 
         resource = TENANT_PATH % tenant_id
@@ -735,8 +738,13 @@ class ServerPool(object):
 
     def rest_create_network(self, tenant_id, network):
         LOG.debug('creating network %s', network)
-        self.namecachedb.create(ObjTypeEnum.network, network['id'],
-                                network['name'])
+        network_name = self.namecachedb.create(ObjTypeEnum.network,
+                                               network['id'], network['name'])
+
+        if network_name:
+            LOG.debug('network name to controller is without space %s' %
+                      network_name)
+            network['name'] = network_name
 
         resource = NET_RESOURCE_PATH % tenant_id
         data = {"network": network}
@@ -744,13 +752,22 @@ class ServerPool(object):
         self.rest_action('POST', resource, data, errstr)
 
     def rest_update_network(self, tenant_id, net_id, network):
+        LOG.debug('updating network %s', network)
+        network_name = self.namecachedb.create(ObjTypeEnum.network,
+                                               network['id'], network['name'])
+
+        if network_name:
+            LOG.debug('network name to controller is without space %s' %
+                      network_name)
+            network['name'] = network_name
+
         resource = NETWORKS_PATH % (tenant_id, net_id)
         data = {"network": network}
         errstr = _("Unable to update remote network: %s")
         self.rest_action('PUT', resource, data, errstr)
 
     def rest_delete_network(self, tenant_id, net_id):
-        LOG.debug('deleting network %s', net_id)
+        LOG.debug('deleting network from namecache %s', net_id)
         self.namecachedb.delete(ObjTypeEnum.network, net_id)
 
         resource = NETWORKS_PATH % (tenant_id, net_id)
