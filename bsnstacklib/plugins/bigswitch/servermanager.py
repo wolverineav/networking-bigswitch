@@ -738,13 +738,13 @@ class ServerPool(object):
 
     def rest_create_network(self, tenant_id, network):
         LOG.debug('creating network %s', network)
-        network_name = self.namecachedb.create(ObjTypeEnum.network,
-                                               network['id'], network['name'])
+        network_namecache = self.namecachedb.create(
+            ObjTypeEnum.network, network['id'], network['name'])
 
-        if network_name:
+        if network_namecache:
             LOG.debug('network name to controller is without space %s' %
-                      network_name)
-            network['name'] = network_name
+                      network_namecache)
+            network['name'] = network_namecache.name_nospace
 
         resource = NET_RESOURCE_PATH % tenant_id
         data = {"network": network}
