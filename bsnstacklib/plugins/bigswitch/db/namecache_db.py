@@ -15,6 +15,7 @@
 
 import sqlalchemy as sa
 
+from neutron.common import exceptions
 from neutron.db import model_base
 from oslo_config import cfg
 from oslo_db import exception as db_exc
@@ -87,9 +88,6 @@ class NameCacheHandler(object):
                           str(namecache_obj))
                 self.session.add(namecache_obj)
                 return namecache_obj
-        except db_exc.DBDuplicateEntry:
-            # topo sync is calling create again. obj exists, proceed as usual
-            return namecache_obj
         except Exception as e:
             LOG.debug('exception while create ' + str(e))
             raise e
