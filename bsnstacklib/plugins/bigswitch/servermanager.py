@@ -562,6 +562,12 @@ class ServerPool(object):
             # remove the auth token so it's not present in debug logs on the
             # backend controller
             cdict.pop('auth_token', None)
+            if ('tenant_name' in cdict and cdict['tenant_name']
+                and ' ' in cdict['tenant_name']):
+
+                tenant_namecache = self.namecachedb.get(ObjTypeEnum.tenant,
+                                                        cdict['tenant'])
+                cdict['tenant_name'] = tenant_namecache.name_nospace
             headers[REQ_CONTEXT_HEADER] = jsonutils.dumps(cdict)
         hash_handler = cdb.HashHandler()
         good_first = sorted(self.servers, key=lambda x: x.failed)
