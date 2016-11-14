@@ -155,6 +155,25 @@ class NameCacheHandler(object):
                 obj_type=obj_type, name_nospace=namecache_obj.name_nospace,
                 nc_exc=str(e))
 
+    def create_tenant(self, id, name):
+        name_nospace = name.replace(' ', '_')
+        tenantcache_obj = TenantCache(id=id, name=name,
+                                      name_nospace=name_nospace)
+        try:
+            with self.session.begin(subtransactions=True):
+                LOG.debug("creating tenant namecache with %s" %
+                          str(namecache_obj))
+                self.session.add(tenantcache_obj)
+                return namecache_obj
+        except db_exc.DBDuplicateEntry:
+            raise ObjectNameNotUnique(obj_type='tenant',
+                                      name_nospace=tenantcache_obj.name_nospace)
+        except Exception as e:
+            LOG.debug('exception while create ' + str(e))
+            raise NamecacheCreateException(
+                obj_type='tenant', name_nospace=tenantcache_obj.name_nospace,
+                nc_exc=str(e))
+
     # given the obj type and obj_id, return the unique object or None
     def get(self, obj_type, obj_id):
         # try and return the mapping if available:
