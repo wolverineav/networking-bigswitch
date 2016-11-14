@@ -26,6 +26,17 @@ from sqlalchemy.types import Enum
 LOG = logging.getLogger(__name__)
 
 
+class ObjectNameNotUnique(exceptions.NeutronException):
+    message = _("Object type %(obj_type)s of name %(name_nospace)s is not "
+                "unique.")
+    status = None
+
+    def __init__(self, **kwargs):
+        self.obj_type = kwargs.get('obj_type')
+        self.name_nospace = kwargs.get('name_nospace')
+        super(TenantIDNotFound, self).__init__(**kwargs)
+
+
 class ObjTypeEnum(Enum):
     network = "network"
     router = "router"
@@ -88,6 +99,9 @@ class NameCacheHandler(object):
                           str(namecache_obj))
                 self.session.add(namecache_obj)
                 return namecache_obj
+        except db_exc.DBDuplicateEntry:
+            raise ObjectNameNotUnique(obj_type=obj_type,
+                                      name_nospace=namecache_obj.name_nospace)
         except Exception as e:
             LOG.debug('exception while create ' + str(e))
             raise e
