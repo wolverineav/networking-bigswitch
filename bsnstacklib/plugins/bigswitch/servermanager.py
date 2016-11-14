@@ -738,8 +738,14 @@ class ServerPool(object):
         LOG.debug('creating network in namecache %s', network)
         network_namecache = self.namecachedb.create(
             ObjTypeEnum.network, network['id'], network['name'])
-
         network['name'] = network_namecache.name_nospace
+
+        if ' ' in network['tenant_name']:
+            tenant_namecache = self.namecachedb.get(ObjTypeEnum.tenant,
+                                                    network['tenant_id'])
+            if not tenant_namecache:
+                # TODO raise exception!!
+            network['tenant_name'] = tenant_namecache.name_nospace
 
         resource = NET_RESOURCE_PATH % tenant_id
         data = {"network": network}
@@ -773,6 +779,13 @@ class ServerPool(object):
         # sg_namecache = self.namecachedb.create(ObjTypeEnum.security_group,
         #                                        sg['id'], sg['name'])
         # sg['name'] = sg_namecache.name_nospace
+
+        if ' ' in sg['tenant_name']:
+            tenant_namecache = self.namecachedb.get(ObjTypeEnum.tenant,
+                                                    sg['tenant_id'])
+            if not tenant_namecache:
+                # TODO raise exception!!
+            sg['tenant_name'] = tenant_namecache.name_nospace
 
         resource = SECURITY_GROUP_RESOURCE_PATH
         data = {"security-group": sg}
