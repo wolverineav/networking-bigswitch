@@ -745,7 +745,7 @@ class ServerPool(object):
                                                     network['tenant_id'])
             if not tenant_namecache:
                 # TODO raise exception!!
-            network['tenant_name'] = tenant_namecache.name_nospace
+                network['tenant_name'] = tenant_namecache.name_nospace
 
         resource = NET_RESOURCE_PATH % tenant_id
         data = {"network": network}
@@ -785,7 +785,7 @@ class ServerPool(object):
                                                     sg['tenant_id'])
             if not tenant_namecache:
                 # TODO raise exception!!
-            sg['tenant_name'] = tenant_namecache.name_nospace
+                sg['tenant_name'] = tenant_namecache.name_nospace
 
         resource = SECURITY_GROUP_RESOURCE_PATH
         data = {"security-group": sg}
