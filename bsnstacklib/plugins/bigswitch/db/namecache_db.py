@@ -27,8 +27,8 @@ LOG = logging.getLogger(__name__)
 
 
 class ObjectNameNotUnique(exceptions.NeutronException):
-    message = _("Object type %(obj_type)s of name %(name_nospace)s is not "
-                "unique.")
+    message = _("Object of type %(obj_type)s and name %(name_nospace)s "
+                "already exists on the BCF controller.")
     status = None
 
     def __init__(self, **kwargs):
