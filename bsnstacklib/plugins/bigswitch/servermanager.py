@@ -741,10 +741,7 @@ class ServerPool(object):
         network_namecache = self.namecachedb.create(
             ObjTypeEnum.network, network['id'], network['name'])
 
-        if network_namecache:
-            LOG.debug('network name to controller is without space %s' %
-                      network_namecache)
-            network['name'] = network_namecache.name_nospace
+        network['name'] = network_namecache.name_nospace
 
         resource = NET_RESOURCE_PATH % tenant_id
         data = {"network": network}

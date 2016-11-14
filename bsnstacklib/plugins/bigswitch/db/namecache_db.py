@@ -37,6 +37,18 @@ class ObjectNameNotUnique(exceptions.NeutronException):
         super(ObjectNameNotUnique, self).__init__(**kwargs)
 
 
+class NamecacheCreateException(exceptions.NeutronException):
+    message = _("Exception when creating namecache object of type %(obj_type)s "
+                "and name %(name_nospace)s : %(nc_exc)s")
+    status = None
+
+    def __init__(self, **kwargs):
+        self.obj_type = kwargs.get('obj_type')
+        self.name_nospace = kwargs.get('name_nospace')
+        self.nc_exc = kwargs.get('nc_exc')
+        super(NamecacheCreateException, self).__init__(**kwargs)
+
+
 class ObjTypeEnum(Enum):
     network = "network"
     router = "router"
@@ -104,7 +116,9 @@ class NameCacheHandler(object):
                                       name_nospace=namecache_obj.name_nospace)
         except Exception as e:
             LOG.debug('exception while create ' + str(e))
-            raise e
+            raise NamecacheCreateException(
+                obj_type=obj_type, name_nospace=namecache_obj.name_nospace,
+                nc_exc=str(e))
 
     # given the obj type and obj_id, return the unique object or None
     def get(self, obj_type, obj_id):
