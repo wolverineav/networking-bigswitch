@@ -53,7 +53,6 @@ class ObjTypeEnum(Enum):
     network = "network"
     router = "router"
     security_group = "security_group"
-    tenant = "tenant"
 
 
 class NameCache(model_base.BASEV2):
@@ -67,6 +66,42 @@ class NameCache(model_base.BASEV2):
                          primary_key=True)
     # uuid for the given obj type
     obj_id = sa.Column(sa.String(36), nullable=False, primary_key=True)
+    # name and name_nospace both aren't unique, but the composite obj with
+    # the whole row is unique
+    name = sa.Column(sa.String(255), nullable=False, unique=False)
+    name_nospace = sa.Column(sa.String(255), nullable=False, unique=False)
+
+    class Meta(object):
+        unique_together = ('obj_type', 'name_nospace')
+
+
+class TenantCache(model_base.BASEV2):
+    '''
+    This table is used to cache names of tenants with space in their name.
+    '''
+    __tablename__ = 'bsn_tenant_namecache'
+    id = sa.Column(sa.String(36), nullable=False, primary_key=True)
+    # name and name_nospace both aren't unique, but the composite obj with
+    # the whole row is unique
+    name = sa.Column(sa.String(255), nullable=False, unique=True)
+    name_nospace = sa.Column(sa.String(255), nullable=False, unique=True)
+
+
+class TenantObjCache(model_base.BASEV2):
+    '''
+    This table is used to cache names of tenant related objects that has space
+    in its name.
+    '''
+    __tablename__ = 'bsn_tenant_obj_namecache'
+    # this is an enum specifying the type of object being renamed
+    obj_type = sa.Column(ObjTypeEnum(name="obj_type"), nullable=False,
+                         primary_key=True)
+    # uuid for the given obj type
+    id = sa.Column(sa.String(36), nullable=False, primary_key=True)
+    tenant_id = sa.Column(sa.Integer,
+                          sa.ForeignKey('bsn_tenant_namecache.id',
+                                        ondelete="CASCADE"),
+                          primary_key=True)
     # name and name_nospace both aren't unique, but the composite obj with
     # the whole row is unique
     name = sa.Column(sa.String(255), nullable=False, unique=False)
