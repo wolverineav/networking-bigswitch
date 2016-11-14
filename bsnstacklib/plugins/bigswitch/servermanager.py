@@ -735,6 +735,7 @@ class ServerPool(object):
         self.rest_action('DELETE', resource, errstr=errstr)
 
     def rest_create_network(self, tenant_id, network):
+        LOG.debug('creating network in namecache %s', network)
         network_namecache = self.namecachedb.create(
             ObjTypeEnum.network, network['id'], network['name'])
 
@@ -768,10 +769,10 @@ class ServerPool(object):
         self.rest_action('DELETE', resource, errstr=errstr)
 
     def rest_create_securitygroup(self, sg):
-        sg_namecache = self.namecachedb.create(ObjTypeEnum.security_group,
-                                               sg['id'], sg['name'])
-
-        sg['name'] = sg_namecache.name_nospace
+        LOG.debug('creating security group in namecache %s', sg)
+        # sg_namecache = self.namecachedb.create(ObjTypeEnum.security_group,
+        #                                        sg['id'], sg['name'])
+        # sg['name'] = sg_namecache.name_nospace
 
         resource = SECURITY_GROUP_RESOURCE_PATH
         data = {"security-group": sg}
