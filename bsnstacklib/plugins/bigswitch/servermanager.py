@@ -745,7 +745,8 @@ class ServerPool(object):
                                                     network['tenant_id'])
             if not tenant_namecache:
                 # TODO raise exception!!
-                network['tenant_name'] = tenant_namecache.name_nospace
+                pass
+            network['tenant_name'] = tenant_namecache.name_nospace
 
         resource = NET_RESOURCE_PATH % tenant_id
         data = {"network": network}
@@ -783,9 +784,11 @@ class ServerPool(object):
         if ' ' in sg['tenant_name']:
             tenant_namecache = self.namecachedb.get(ObjTypeEnum.tenant,
                                                     sg['tenant_id'])
-            if not tenant_namecache:
+            if tenant_namecache:
                 # TODO raise exception!!
-                sg['tenant_name'] = tenant_namecache.name_nospace
+                pass
+
+            sg['tenant_name'] = tenant_namecache.name_nospace
 
         resource = SECURITY_GROUP_RESOURCE_PATH
         data = {"security-group": sg}
