@@ -34,7 +34,7 @@ class ObjectNameNotUnique(exceptions.NeutronException):
     def __init__(self, **kwargs):
         self.obj_type = kwargs.get('obj_type')
         self.name_nospace = kwargs.get('name_nospace')
-        super(TenantIDNotFound, self).__init__(**kwargs)
+        super(ObjectNameNotUnique, self).__init__(**kwargs)
 
 
 class ObjTypeEnum(Enum):
