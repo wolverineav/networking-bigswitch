@@ -690,10 +690,7 @@ class ServerPool(object):
         namecache_tenant = self.namecachedb.create(ObjTypeEnum.tenant,
                                                    tenant_id,
                                                    tenant_name)
-        if namecache_tenant:
-            LOG.debug('tenant name to controller is without space %s' %
-                      tenant_name)
-            tenant_name = namecache_tenant.name_nospace
+        tenant_name = namecache_tenant.name_nospace
 
         resource = TENANT_RESOURCE_PATH
         data = {"tenant_id": tenant_id, 'tenant_name': tenant_name}
@@ -709,6 +706,7 @@ class ServerPool(object):
         self.rest_action('DELETE', resource, errstr=errstr)
 
     def rest_create_router(self, tenant_id, router):
+        LOG.debug('creating router in namecache %s' % router)
         resource = ROUTER_RESOURCE_PATH % tenant_id
         data = {"router": router}
         errstr = _("Unable to create remote router: %s")
@@ -737,7 +735,6 @@ class ServerPool(object):
         self.rest_action('DELETE', resource, errstr=errstr)
 
     def rest_create_network(self, tenant_id, network):
-        LOG.debug('creating network %s', network)
         network_namecache = self.namecachedb.create(
             ObjTypeEnum.network, network['id'], network['name'])
 
@@ -771,12 +768,10 @@ class ServerPool(object):
         self.rest_action('DELETE', resource, errstr=errstr)
 
     def rest_create_securitygroup(self, sg):
-        LOG.debug('creating security group %s' % sg)
         sg_namecache = self.namecachedb.create(ObjTypeEnum.security_group,
                                                sg['id'], sg['name'])
-        if sg_namecache:
-            sg_name = sg_namecache.name_nospace
-            sg['name'] = sg_name
+
+        sg['name'] = sg_namecache.name_nospace
 
         resource = SECURITY_GROUP_RESOURCE_PATH
         data = {"security-group": sg}
