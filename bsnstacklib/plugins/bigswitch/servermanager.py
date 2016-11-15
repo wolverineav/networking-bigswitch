@@ -567,8 +567,8 @@ class ServerPool(object):
 
                 tenant_namecache = self.namecachedb.get_tenant(cdict['tenant'])
                 if not tenant_namecache:
-                    # TODO raise exception!!
-                    pass
+                    raise namecache_db.TenantcacheMissingException(
+                        tenant_name=cdict['tenant_name'])
                 cdict['tenant_name'] = tenant_namecache.name_nospace
             headers[REQ_CONTEXT_HEADER] = jsonutils.dumps(cdict)
         hash_handler = cdb.HashHandler()
@@ -721,8 +721,8 @@ class ServerPool(object):
         if ' ' in router['tenant_name']:
             tenant_namecache = self.namecachedb.get_tenant(router['tenant_id'])
             if not tenant_namecache:
-                # TODO raise exception!!
-                pass
+                raise namecache_db.TenantcacheMissingException(
+                    tenant_name=router['tenant_name'])
             router['tenant_name'] = tenant_namecache.name_nospace
 
         resource = ROUTER_RESOURCE_PATH % tenant_id
@@ -765,8 +765,8 @@ class ServerPool(object):
             tenant_namecache = self.namecachedb.get_tenant(
                 network['tenant_id'])
             if not tenant_namecache:
-                # TODO raise exception!!
-                pass
+                raise namecache_db.TenantcacheMissingException(
+                    tenant_name=network['tenant_name'])
             network['tenant_name'] = tenant_namecache.name_nospace
 
         resource = NET_RESOURCE_PATH % tenant_id
@@ -781,8 +781,8 @@ class ServerPool(object):
             network_namecache = self.namecachedb.get_tenant_subobj(
                 ObjTypeEnum.network, net_id)
             if not network_namecache:
-                # TODO raise exception!!
-                pass
+                raise namecache_db.TenantcacheMissingException(
+                    tenant_name=network['tenant_name'])
             network_name = network_namecache.name_nospace
             network['name'] = network_name
 
@@ -808,8 +808,8 @@ class ServerPool(object):
         if ' ' in sg['tenant_name']:
             tenant_namecache = self.namecachedb.get_tenant(sg['tenant_id'])
             if tenant_namecache:
-                # TODO raise exception!!
-                pass
+                raise namecache_db.TenantcacheMissingException(
+                    tenant_name=sg['tenant_name'])
             sg['tenant_name'] = tenant_namecache.name_nospace
 
         resource = SECURITY_GROUP_RESOURCE_PATH

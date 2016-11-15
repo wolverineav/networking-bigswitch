@@ -47,7 +47,7 @@ def upgrade():
     op.create_table(
         'bsn_tenant_obj_namecache',
         sa.Column('obj_type', Enum("network", "router", "security_group",
-                                   name="obj_type"),
+                                   "tenant", name="obj_type"),
                   nullable=False),
         sa.Column('id', sa.String(length=36), nullable=False),
         sa.Column('tenant_id', sa.String(length=36), nullable=False),

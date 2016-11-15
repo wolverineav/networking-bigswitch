@@ -61,10 +61,20 @@ class NamecacheDeleteException(exceptions.NeutronException):
         super(NamecacheDeleteException, self).__init__(**kwargs)
 
 
+class TenantcacheMissingException(exceptions.NeutronException):
+    message = _("Missing namecache mapping for tenant named: %(tenant_name)s.")
+    status = None
+
+    def __init__(self, **kwargs):
+        self.obj_type = kwargs.get('tenant_name')
+        super(TenantcacheMissingException, self).__init__(**kwargs)
+
+
 class ObjTypeEnum(Enum):
     network = "network"
     router = "router"
     security_group = "security_group"
+    tenant = "tenant"
 
 
 class TenantCache(model_base.BASEV2):
@@ -145,12 +155,13 @@ class NameCacheHandler(object):
                 return tenantcache_obj
             else:
                 raise ObjectNameNotUnique(
-                    obj_type='tenant',
+                    obj_type=ObjTypeEnum.tenant,
                     name_nospace=tenantcache_obj.name_nospace)
         except Exception as e:
             LOG.debug('exception while create ' + str(e))
             raise NamecacheCreateException(
-                obj_type='tenant', name_nospace=tenantcache_obj.name_nospace,
+                obj_type=ObjTypeEnum.tenant,
+                name_nospace=tenantcache_obj.name_nospace,
                 nc_exc=str(e))
 
     def create_tenant_subobj(self, obj_type, obj):
@@ -216,7 +227,8 @@ class NameCacheHandler(object):
                     return
                 self.session.delete(tenantcache_obj)
             except Exception as e:
-                raise NamecacheDeleteException(obj_type='tenant', id=tenant_id,
+                raise NamecacheDeleteException(obj_type=ObjTypeEnum.tenant,
+                                               id=tenant_id,
                                                nc_exc=str(e))
 
     def delete_tenant_subobj(self, obj_type, obj_id):
