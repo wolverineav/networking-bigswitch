@@ -731,6 +731,14 @@ class ServerPool(object):
         self.rest_action('POST', resource, data, errstr)
 
     def rest_update_router(self, tenant_id, router, router_id):
+        LOG.debug('updating router in namecache %s' % router)
+        if ' ' in router['tenant_name']:
+            tenant_namecache = self.namecachedb.get_tenant(router['tenant_id'])
+            if not tenant_namecache:
+                raise namecache_db.TenantcacheMissingException(
+                    tenant_name=router['tenant_name'])
+            router['tenant_name'] = tenant_namecache.name_nospace
+
         resource = ROUTERS_PATH % (tenant_id, router_id)
         data = {"router": router}
         errstr = _("Unable to update remote router: %s")
