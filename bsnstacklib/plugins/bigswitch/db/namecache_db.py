@@ -100,7 +100,7 @@ class TenantObjCache(model_base.BASEV2):
     name_nospace = sa.Column(sa.String(255), nullable=False, unique=False)
 
     class Meta(object):
-        unique_together = ('obj_type', 'name_nospace')
+        unique_together = ('obj_type', 'tenant_id', 'name_nospace')
 
 
 class NameCacheHandler(object):
@@ -133,10 +133,20 @@ class NameCacheHandler(object):
                 LOG.debug("creating tenant namecache with %s" %
                           str(tenantcache_obj))
                 self.session.add(tenantcache_obj)
-                return namecache_obj
+                return tenantcache_obj
         except db_exc.DBDuplicateEntry:
-            raise ObjectNameNotUnique(obj_type='tenant',
-                                      name_nospace=tenantcache_obj.name_nospace)
+            '''
+            create_tenant can be called multiple times for the same tenant,
+            during the periodic tenant cache sync with the controller. hence,
+            we handle it correctly.
+            '''
+            tenantcache_obj = self.get_tenant(tenant_id=id)
+            if tenantcache_obj.name == name:
+                return tenantcache_obj
+            else:
+                raise ObjectNameNotUnique(
+                    obj_type='tenant',
+                    name_nospace=tenantcache_obj.name_nospace)
         except Exception as e:
             LOG.debug('exception while create ' + str(e))
             raise NamecacheCreateException(

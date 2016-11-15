@@ -67,7 +67,7 @@ def upgrade():
         sa.Column('name_nospace', sa.String(255), nullable=False),
         sa.PrimaryKeyConstraint('obj_type', 'id',
                                 name='bsn_tenant_obj_namecache_pk'),
-        sa.UniqueConstraint('obj_type', 'name_nospace',
+        sa.UniqueConstraint('obj_type', 'tenant_id', 'name_nospace',
                             name='bsn_tenant_obj_namecache_name_uk'),
         sa.ForeignKeyConstraint(['tenant_id'], ['bsn_tenant_namecache.id'],
                                 ondelete='CASCADE'),)
