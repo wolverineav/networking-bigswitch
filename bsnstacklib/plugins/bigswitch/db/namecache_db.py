@@ -165,8 +165,12 @@ class NameCacheHandler(object):
                 self.session.add(namecache_obj)
                 return namecache_obj
         except db_exc.DBDuplicateEntry:
-            raise ObjectNameNotUnique(obj_type=obj_type,
-                                      name_nospace=namecache_obj.name_nospace)
+            namecache_obj = self.get_tenant_subobj(obj_type, obj['id'])
+            if namecache_obj.name == obj['name']:
+                return namecache_obj
+            else:
+                raise ObjectNameNotUnique(
+                    obj_type=obj_type, name_nospace=namecache_obj.name_nospace)
         except Exception as e:
             LOG.debug('exception while create ' + str(e))
             raise NamecacheCreateException(
@@ -189,14 +193,17 @@ class NameCacheHandler(object):
         # try and return the mapping if available:
         with self.session.begin(subtransactions=True):
             try:
+                LOG.debug('getting object type %s and ID %s' %
+                          (obj_type, obj_id))
                 result = (self.session.query(TenantObjCache)
                           .filter_by(obj_type=obj_type,
-                                     obj_id=obj_id)
+                                     id=obj_id)
                           .first())
                 LOG.debug("returning a tenant subobject namecache object %s" %
                           result)
                 return result
-            except Exception:
+            except Exception as e:
+                LOG.debug('exception while get %s' % str(e))
                 return None
 
     def delete_tenant(self, tenant_id):

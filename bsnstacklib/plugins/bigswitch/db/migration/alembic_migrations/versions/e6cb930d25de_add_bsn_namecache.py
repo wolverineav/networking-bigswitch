@@ -35,18 +35,6 @@ from sqlalchemy.types import Enum
 
 def upgrade():
     op.create_table(
-        'bsn_namecache',
-        sa.Column('obj_type', Enum("tenant", "network",
-                                   "security_group", name="obj_type"),
-                  nullable=False),
-        sa.Column('obj_id', sa.String(length=36), nullable=False),
-        sa.Column('name', sa.String(255), nullable=False),
-        sa.Column('name_nospace', sa.String(255), nullable=False),
-        sa.PrimaryKeyConstraint('obj_type', 'obj_id', name='bsn_namecache_pk'),
-        sa.UniqueConstraint('obj_type', 'name_nospace',
-                            name='bsn_namecache_name_uk'))
-
-    op.create_table(
         'bsn_tenant_namecache',
         sa.Column('id', sa.String(length=36), nullable=False),
         sa.Column('name', sa.String(255), nullable=False),
