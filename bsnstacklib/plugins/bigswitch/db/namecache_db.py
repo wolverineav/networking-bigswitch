@@ -49,30 +49,22 @@ class NamecacheCreateException(exceptions.NeutronException):
         super(NamecacheCreateException, self).__init__(**kwargs)
 
 
+class NamecacheDeleteException(exceptions.NeutronException):
+    message = _("Exception when deleting namecache object of type %(obj_type)s "
+                "and ID %(name_nospace)s : %(nc_exc)s")
+    status = None
+
+    def __init__(self, **kwargs):
+        self.obj_type = kwargs.get('obj_type')
+        self.id = kwargs.get('id')
+        self.nc_exc = kwargs.get('nc_exc')
+        super(NamecacheDeleteException, self).__init__(**kwargs)
+
+
 class ObjTypeEnum(Enum):
     network = "network"
     router = "router"
     security_group = "security_group"
-
-
-class NameCache(model_base.BASEV2):
-    '''
-    This table is used to cache names of various objects that have <space> in
-    their names.
-    '''
-    __tablename__ = 'bsn_namecache'
-    # this is an enum specifying the type of object being renamed
-    obj_type = sa.Column(ObjTypeEnum(name="obj_type"), nullable=False,
-                         primary_key=True)
-    # uuid for the given obj type
-    obj_id = sa.Column(sa.String(36), nullable=False, primary_key=True)
-    # name and name_nospace both aren't unique, but the composite obj with
-    # the whole row is unique
-    name = sa.Column(sa.String(255), nullable=False, unique=False)
-    name_nospace = sa.Column(sa.String(255), nullable=False, unique=False)
-
-    class Meta(object):
-        unique_together = ('obj_type', 'name_nospace')
 
 
 class TenantCache(model_base.BASEV2):
@@ -132,17 +124,33 @@ class NameCacheHandler(object):
         self.session = (NameCacheHandler._FACADE
                         .get_session(autocommit=True, expire_on_commit=False))
 
-    # this will try and update the cache with the object specified
-    # returns a tuple (bool success, string name_nospace)
-    def create(self, obj_type, obj_id, name):
-        name_nospace = ''
-        if name is not None:
-            name_nospace = name.replace(' ', '_')
-        namecache_obj = NameCache(obj_type=obj_type, obj_id=obj_id, name=name,
-                                  name_nospace=name_nospace)
+    def create_tenant(self, id, name):
+        name_nospace = name.replace(' ', '_')
+        tenantcache_obj = TenantCache(id=id, name=name,
+                                      name_nospace=name_nospace)
         try:
             with self.session.begin(subtransactions=True):
-                LOG.debug("creating object namecache with %s" %
+                LOG.debug("creating tenant namecache with %s" %
+                          str(tenantcache_obj))
+                self.session.add(tenantcache_obj)
+                return namecache_obj
+        except db_exc.DBDuplicateEntry:
+            raise ObjectNameNotUnique(obj_type='tenant',
+                                      name_nospace=tenantcache_obj.name_nospace)
+        except Exception as e:
+            LOG.debug('exception while create ' + str(e))
+            raise NamecacheCreateException(
+                obj_type='tenant', name_nospace=tenantcache_obj.name_nospace,
+                nc_exc=str(e))
+
+    def create_tenant_subobj(self, obj_type, obj):
+        name_nospace = obj['name'].replace(' ', '_')
+        namecache_obj = TenantObjCache(
+            obj_type=obj_type, tenant_id=obj['tenant_id'],
+            id=obj['id'], name=obj['name'], name_nospace=name_nospace)
+        try:
+            with self.session.begin(subtransactions=True):
+                LOG.debug("creating tenant sub object in namecache with %s" %
                           str(namecache_obj))
                 self.session.add(namecache_obj)
                 return namecache_obj
@@ -155,48 +163,54 @@ class NameCacheHandler(object):
                 obj_type=obj_type, name_nospace=namecache_obj.name_nospace,
                 nc_exc=str(e))
 
-    def create_tenant(self, id, name):
-        name_nospace = name.replace(' ', '_')
-        tenantcache_obj = TenantCache(id=id, name=name,
-                                      name_nospace=name_nospace)
-        try:
-            with self.session.begin(subtransactions=True):
-                LOG.debug("creating tenant namecache with %s" %
-                          str(namecache_obj))
-                self.session.add(tenantcache_obj)
-                return namecache_obj
-        except db_exc.DBDuplicateEntry:
-            raise ObjectNameNotUnique(obj_type='tenant',
-                                      name_nospace=tenantcache_obj.name_nospace)
-        except Exception as e:
-            LOG.debug('exception while create ' + str(e))
-            raise NamecacheCreateException(
-                obj_type='tenant', name_nospace=tenantcache_obj.name_nospace,
-                nc_exc=str(e))
-
-    # given the obj type and obj_id, return the unique object or None
-    def get(self, obj_type, obj_id):
+    def get_tenant(self, tenant_id):
         # try and return the mapping if available:
         with self.session.begin(subtransactions=True):
             try:
-                result = (self.session.query(NameCache)
-                          .filter_by(obj_type=obj_type,
-                                     obj_id=obj_id)
+                result = (self.session.query(TenantCache)
+                          .filter_by(id=tenant_id)
                           .first())
-                LOG.debug("returning a namecache object %s" % result)
+                LOG.debug("returning a tenant namecache object %s" % result)
                 return result
             except Exception:
                 return None
 
-    def delete(self, obj_type, obj_id):
+    def get_tenant_subobj(self, obj_type, obj_id):
+        # try and return the mapping if available:
         with self.session.begin(subtransactions=True):
             try:
-                namespace_obj = self.get(obj_type, obj_id)
-                if not namespace_obj:
+                result = (self.session.query(TenantObjCache)
+                          .filter_by(obj_type=obj_type,
+                                     obj_id=obj_id)
+                          .first())
+                LOG.debug("returning a tenant subobject namecache object %s" %
+                          result)
+                return result
+            except Exception:
+                return None
+
+    def delete_tenant(self, tenant_id):
+        with self.session.begin(subtransactions=True):
+            try:
+                tenantcache_obj = self.get_tenant(tenant_id)
+                if not tenantcache_obj:
+                    # object does not exist, return
+                    LOG.debug('tenant not found. nothing to delete')
+                    return
+                self.session.delete(tenantcache_obj)
+            except Exception as e:
+                raise NamecacheDeleteException(obj_type='tenant', id=tenant_id,
+                                               nc_exc=str(e))
+
+    def delete_tenant_subobj(self, obj_type, obj_id):
+        with self.session.begin(subtransactions=True):
+            try:
+                namecache_obj = self.get_tenant_subobj(obj_type, obj_id)
+                if not namecache_obj:
                     # object does not exist, return
                     LOG.debug('obj not found. nothing to delete')
                     return
-                self.session.delete(namespace_obj)
+                self.session.delete(namecache_obj)
             except Exception as e:
-                LOG.debug('exception while delete ' + str(e))
-                raise e
+                raise NamecacheDeleteException(obj_type=obj_type, id=obj_id,
+                                               nc_exc=str(e))

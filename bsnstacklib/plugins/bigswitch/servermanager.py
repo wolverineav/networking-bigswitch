@@ -565,8 +565,10 @@ class ServerPool(object):
             if ('tenant_name' in cdict and cdict['tenant_name']
                 and ' ' in cdict['tenant_name']):
 
-                tenant_namecache = self.namecachedb.get(ObjTypeEnum.tenant,
-                                                        cdict['tenant'])
+                tenant_namecache = self.namecachedb.get_tenant(cdict['tenant'])
+                if not tenant_namecache:
+                    # TODO raise exception!!
+                    pass
                 cdict['tenant_name'] = tenant_namecache.name_nospace
             headers[REQ_CONTEXT_HEADER] = jsonutils.dumps(cdict)
         hash_handler = cdb.HashHandler()
@@ -693,9 +695,8 @@ class ServerPool(object):
         if not tenant_name:
             raise TenantIDNotFound(tenant=tenant_id)
 
-        namecache_tenant = self.namecachedb.create(ObjTypeEnum.tenant,
-                                                   tenant_id,
-                                                   tenant_name)
+        namecache_tenant = self.namecachedb.create_tenant(tenant_id,
+                                                          tenant_name)
         tenant_name = namecache_tenant.name_nospace
 
         resource = TENANT_RESOURCE_PATH
@@ -705,7 +706,7 @@ class ServerPool(object):
 
     def rest_delete_tenant(self, tenant_id):
         LOG.debug('deleting tenant from namecache %s' % tenant_id)
-        self.namecachedb.delete(ObjTypeEnum.tenant, tenant_id)
+        self.namecachedb.delete_tenant(tenant_id)
 
         resource = TENANT_PATH % tenant_id
         errstr = _("Unable to delete tenant: %s")
@@ -713,6 +714,17 @@ class ServerPool(object):
 
     def rest_create_router(self, tenant_id, router):
         LOG.debug('creating router in namecache %s' % router)
+        router_namecache = self.namecachedb.create_tenant_subobj(
+            ObjTypeEnum.router, router)
+        router['name'] = router_namecache.name_nospace
+
+        if ' ' in router['tenant_name']:
+            tenant_namecache = self.namecachedb.get_tenant(router['tenant_id'])
+            if not tenant_namecache:
+                # TODO raise exception!!
+                pass
+            router['tenant_name'] = tenant_namecache.name_nospace
+
         resource = ROUTER_RESOURCE_PATH % tenant_id
         data = {"router": router}
         errstr = _("Unable to create remote router: %s")
@@ -725,6 +737,9 @@ class ServerPool(object):
         self.rest_action('PUT', resource, data, errstr)
 
     def rest_delete_router(self, tenant_id, router_id):
+        LOG.debug('deleting router from namecache %s', net_id)
+        self.namecachedb.delete_tenant_subobj(ObjTypeEnum.router, router_id)
+
         resource = ROUTERS_PATH % (tenant_id, router_id)
         errstr = _("Unable to delete remote router: %s")
         self.rest_action('DELETE', resource, errstr=errstr)
@@ -742,13 +757,13 @@ class ServerPool(object):
 
     def rest_create_network(self, tenant_id, network):
         LOG.debug('creating network in namecache %s', network)
-        network_namecache = self.namecachedb.create(
-            ObjTypeEnum.network, network['id'], network['name'])
+        network_namecache = self.namecachedb.create_tenant_subobj(
+            ObjTypeEnum.network, network)
         network['name'] = network_namecache.name_nospace
 
         if ' ' in network['tenant_name']:
-            tenant_namecache = self.namecachedb.get(ObjTypeEnum.tenant,
-                                                    network['tenant_id'])
+            tenant_namecache = self.namecachedb.get_tenant(
+                network['tenant_id'])
             if not tenant_namecache:
                 # TODO raise exception!!
                 pass
@@ -762,10 +777,13 @@ class ServerPool(object):
     def rest_update_network(self, tenant_id, net_id, network):
         LOG.debug('updating network %s', network)
 
-        network_namecache = self.namecachedb.get(ObjTypeEnum.network, net_id)
-        if network_namecache:
+        if ' ' in network['name']:
+            network_namecache = self.namecachedb.get_tenant_subobj(
+                ObjTypeEnum.network, net_id)
+            if not network_namecache:
+                # TODO raise exception!!
+                pass
             network_name = network_namecache.name_nospace
-            LOG.debug('existing network name is %s' % network_name)
             network['name'] = network_name
 
         resource = NETWORKS_PATH % (tenant_id, net_id)
@@ -775,7 +793,7 @@ class ServerPool(object):
 
     def rest_delete_network(self, tenant_id, net_id):
         LOG.debug('deleting network from namecache %s', net_id)
-        self.namecachedb.delete(ObjTypeEnum.network, net_id)
+        self.namecachedb.delete_tenant_subobj(ObjTypeEnum.network, net_id)
 
         resource = NETWORKS_PATH % (tenant_id, net_id)
         errstr = _("Unable to delete remote network: %s")
@@ -783,17 +801,15 @@ class ServerPool(object):
 
     def rest_create_securitygroup(self, sg):
         LOG.debug('creating security group in namecache %s', sg)
-        # sg_namecache = self.namecachedb.create(ObjTypeEnum.security_group,
-        #                                        sg['id'], sg['name'])
-        # sg['name'] = sg_namecache.name_nospace
+        sg_namecache = self.namecachedb.create_tenant_subobj(
+            ObjTypeEnum.security_group, sg)
+        sg['name'] = sg_namecache.name_nospace
 
         if ' ' in sg['tenant_name']:
-            tenant_namecache = self.namecachedb.get(ObjTypeEnum.tenant,
-                                                    sg['tenant_id'])
+            tenant_namecache = self.namecachedb.get_tenant(sg['tenant_id'])
             if tenant_namecache:
                 # TODO raise exception!!
                 pass
-
             sg['tenant_name'] = tenant_namecache.name_nospace
 
         resource = SECURITY_GROUP_RESOURCE_PATH
@@ -803,7 +819,8 @@ class ServerPool(object):
 
     def rest_delete_securitygroup(self, sg_id):
         LOG.debug('deleting security group from namecache %s' % sg_id)
-        self.namecachedb.delete(ObjTypeEnum.security_group, sg_id)
+        self.namecachedb.delete_tenant_subobj(ObjTypeEnum.security_group,
+                                              sg_id)
 
         resource = SECURITY_GROUP_PATH % sg_id
         errstr = _("Unable to delete security group: %s")
