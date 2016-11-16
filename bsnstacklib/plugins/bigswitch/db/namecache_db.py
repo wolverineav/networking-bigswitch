@@ -16,6 +16,7 @@
 import sqlalchemy as sa
 
 from neutron.common import exceptions
+from neutron.db import api as db_api
 from neutron.db import model_base
 from oslo_config import cfg
 from oslo_db import exception as db_exc
@@ -24,6 +25,24 @@ from oslo_log import log as logging
 from sqlalchemy.types import Enum
 
 LOG = logging.getLogger(__name__)
+
+
+def setup_db():
+    '''Helper to register models for unit tests'''
+    if NameCacheHandler._FACADE is None:
+        NameCacheHandler._FACADE = session.EngineFacade.from_config(
+            cfg.CONF, sqlite_fk=True)
+    TenantCache.metadata.create_all(NameCacheHandler._FACADE.get_engine())
+    TenantObjCache.metadata.create_all(NameCacheHandler._FACADE.get_engine())
+
+
+def clear_db():
+    '''Helper to unregister models and clear engine in unit tests'''
+    if not NameCacheHandler._FACADE:
+        return
+    TenantCache.metadata.drop_all(NameCacheHandler._FACADE.get_engine())
+    TenantObjCache.metadata.drop_all(NameCacheHandler._FACADE.get_engine())
+    NameCacheHandler._FACADE = None
 
 
 class ObjectNameNotUnique(exceptions.NeutronException):
@@ -78,6 +97,8 @@ class ObjTypeEnum(Enum):
 
 
 class TenantCache(model_base.BASEV2):
+    # TODO(wolverineav) do a proper fix for this setup and clear db hack
+    _TEST_TABLE_SETUP = None
     '''
     This table is used to cache names of tenants with space in their name.
     '''

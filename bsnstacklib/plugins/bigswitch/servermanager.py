@@ -714,9 +714,10 @@ class ServerPool(object):
 
     def rest_create_router(self, tenant_id, router):
         LOG.debug('creating router in namecache %s' % router)
-        router_namecache = self.namecachedb.create_tenant_subobj(
-            ObjTypeEnum.router, router)
-        router['name'] = router_namecache.name_nospace
+        if ' ' in router['name']:
+            router_namecache = self.namecachedb.create_tenant_subobj(
+                ObjTypeEnum.router, router)
+            router['name'] = router_namecache.name_nospace
 
         if ' ' in router['tenant_name']:
             tenant_namecache = self.namecachedb.get_tenant(router['tenant_id'])
@@ -745,7 +746,7 @@ class ServerPool(object):
         self.rest_action('PUT', resource, data, errstr)
 
     def rest_delete_router(self, tenant_id, router_id):
-        LOG.debug('deleting router from namecache %s', net_id)
+        LOG.debug('deleting router from namecache %s', router_id)
         self.namecachedb.delete_tenant_subobj(ObjTypeEnum.router, router_id)
 
         resource = ROUTERS_PATH % (tenant_id, router_id)
@@ -764,12 +765,13 @@ class ServerPool(object):
         self.rest_action('DELETE', resource, errstr=errstr)
 
     def rest_create_network(self, tenant_id, network):
-        LOG.debug('creating network in namecache %s', network)
-        network_namecache = self.namecachedb.create_tenant_subobj(
-            ObjTypeEnum.network, network)
-        network['name'] = network_namecache.name_nospace
+        LOG.info('creating network in namecache %s' % network)
+        if  'name' in network and ' ' in network['name']:
+            network_namecache = self.namecachedb.create_tenant_subobj(
+                ObjTypeEnum.network, network)
+            network['name'] = network_namecache.name_nospace
 
-        if ' ' in network['tenant_name']:
+        if 'tenant_name' in network and ' ' in network['tenant_name']:
             tenant_namecache = self.namecachedb.get_tenant(
                 network['tenant_id'])
             if not tenant_namecache:
@@ -809,9 +811,10 @@ class ServerPool(object):
 
     def rest_create_securitygroup(self, sg):
         LOG.debug('creating security group in namecache %s', sg)
-        sg_namecache = self.namecachedb.create_tenant_subobj(
-            ObjTypeEnum.security_group, sg)
-        sg['name'] = sg_namecache.name_nospace
+        if ' ' in sg['name']:
+            sg_namecache = self.namecachedb.create_tenant_subobj(
+                ObjTypeEnum.security_group, sg)
+            sg['name'] = sg_namecache.name_nospace
 
         if ' ' in sg['tenant_name']:
             tenant_namecache = self.namecachedb.get_tenant(sg['tenant_id'])
