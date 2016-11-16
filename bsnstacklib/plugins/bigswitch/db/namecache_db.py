@@ -221,6 +221,14 @@ class NameCacheHandler(object):
             except Exception:
                 return None
 
+    def get_all_tenants(self):
+        with self.session.begin(subtransactions=True):
+            try:
+                result = self.session.query(TenantCache).all()
+                return result
+            except Exception:
+                return []
+
     def get_tenant_subobj(self, obj_type, obj_id):
         # try and return the mapping if available:
         with self.session.begin(subtransactions=True):

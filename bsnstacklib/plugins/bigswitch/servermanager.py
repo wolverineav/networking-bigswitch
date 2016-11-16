@@ -605,6 +605,16 @@ class ServerPool(object):
                     data = self.get_topo_function(
                                **self.get_topo_function_args)
                     if data:
+                        # topo sync contains tenants. replace name with name
+                        # without spaces
+                        if 'tenants' in data:
+                            all_tenants_namecache = (self.namecachedb.
+                                                     get_all_tenants())
+                            for tenant_namecache in all_tenants_namecache:
+                                if tenant_namecache.id in data['tenants']:
+                                    data['tenants'][tenant_namecache.id] = \
+                                        tenant_namecache.name_nospace
+
                         ret_ts = active_server.rest_call('POST', TOPOLOGY_PATH,
                                                          data, timeout=None)
                         if self.server_failure(ret_ts, ignore_codes):
