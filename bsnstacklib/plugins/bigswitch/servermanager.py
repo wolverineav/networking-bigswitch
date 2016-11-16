@@ -565,9 +565,8 @@ class ServerPool(object):
                                 [subobj['tenant_id']]
                                 [subobj['id']])
                 return name_nospace
-            except Exception as e:
+            except Exception:
                 return subobj['name']
-
 
         all_tenants_dict = self.namecachedb.get_all_tenants()
         all_subobj_dict = self.namecachedb.get_all_tenant_subobj()
@@ -789,7 +788,8 @@ class ServerPool(object):
             tenant_namecache = self.namecachedb.get_tenant(router['tenant_id'])
             if not tenant_namecache:
                 raise namecache_db.TenantcacheMissingException(
-                    obj_type=ObjTypeEnum.tenant, obj_name=cdict['tenant_name'])
+                    obj_type=ObjTypeEnum.tenant,
+                    obj_name=router['tenant_name'])
             router['tenant_name'] = tenant_namecache.name_nospace
 
         resource = ROUTER_RESOURCE_PATH % tenant_id
@@ -803,7 +803,8 @@ class ServerPool(object):
             tenant_namecache = self.namecachedb.get_tenant(router['tenant_id'])
             if not tenant_namecache:
                 raise namecache_db.TenantcacheMissingException(
-                    obj_type=ObjTypeEnum.tenant, obj_name=cdict['tenant_name'])
+                    obj_type=ObjTypeEnum.tenant,
+                    obj_name=router['tenant_name'])
             router['tenant_name'] = tenant_namecache.name_nospace
 
         resource = ROUTERS_PATH % (tenant_id, router_id)
@@ -831,8 +832,8 @@ class ServerPool(object):
         self.rest_action('DELETE', resource, errstr=errstr)
 
     def rest_create_network(self, tenant_id, network):
-        LOG.info('creating network in namecache %s' % network)
-        if  'name' in network and ' ' in network['name']:
+        LOG.debug('creating network in namecache %s' % network)
+        if 'name' in network and ' ' in network['name']:
             network_namecache = self.namecachedb.create_tenant_subobj(
                 ObjTypeEnum.network, network)
             network['name'] = network_namecache.name_nospace
@@ -842,7 +843,8 @@ class ServerPool(object):
                 network['tenant_id'])
             if not tenant_namecache:
                 raise namecache_db.TenantcacheMissingException(
-                    obj_type=ObjTypeEnum.tenant, obj_name=cdict['tenant_name'])
+                    obj_type=ObjTypeEnum.tenant,
+                    obj_name=network['tenant_name'])
             network['tenant_name'] = tenant_namecache.name_nospace
 
         resource = NET_RESOURCE_PATH % tenant_id
@@ -858,7 +860,8 @@ class ServerPool(object):
                 ObjTypeEnum.network, net_id)
             if not network_namecache:
                 raise namecache_db.TenantcacheMissingException(
-                    obj_type=ObjTypeEnum.tenant, obj_name=cdict['tenant_name'])
+                    obj_type=ObjTypeEnum.tenant,
+                    obj_name=network['tenant_name'])
             network_name = network_namecache.name_nospace
             network['name'] = network_name
 
@@ -886,7 +889,7 @@ class ServerPool(object):
             tenant_namecache = self.namecachedb.get_tenant(sg['tenant_id'])
             if tenant_namecache:
                 raise namecache_db.TenantcacheMissingException(
-                    obj_type=ObjTypeEnum.tenant, obj_name=cdict['tenant_name'])
+                    obj_type=ObjTypeEnum.tenant, obj_name=sg['tenant_name'])
             sg['tenant_name'] = tenant_namecache.name_nospace
 
         resource = SECURITY_GROUP_RESOURCE_PATH

@@ -1,4 +1,4 @@
-# Copyright 2016, Big Switch Networks
+# Copyright 2016 Big Switch Networks, Inc.
 # All Rights Reserved.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -16,7 +16,6 @@
 import sqlalchemy as sa
 
 from neutron.common import exceptions
-from neutron.db import api as db_api
 from neutron.db import model_base
 from oslo_config import cfg
 from oslo_db import exception as db_exc
@@ -57,8 +56,8 @@ class ObjectNameNotUnique(exceptions.NeutronException):
 
 
 class NamecacheCreateException(exceptions.NeutronException):
-    message = _("Exception when creating namecache object of type %(obj_type)s "
-                "and name %(name_nospace)s : %(nc_exc)s")
+    message = _("Exception when creating namecache object of type %(obj_type)s"
+                " and name %(name_nospace)s : %(nc_exc)s")
     status = None
 
     def __init__(self, **kwargs):
@@ -69,8 +68,8 @@ class NamecacheCreateException(exceptions.NeutronException):
 
 
 class NamecacheDeleteException(exceptions.NeutronException):
-    message = _("Exception when deleting namecache object of type %(obj_type)s "
-                "and ID %(name_nospace)s : %(nc_exc)s")
+    message = _("Exception when deleting namecache object of type %(obj_type)s"
+                " and ID %(name_nospace)s : %(nc_exc)s")
     status = None
 
     def __init__(self, **kwargs):
@@ -252,9 +251,9 @@ class NameCacheHandler(object):
     def get_all_tenant_subobj(self):
         with self.session.begin(subtransactions=True):
             all_subobj_dict = {
-                ObjTypeEnum.network : {},
-                ObjTypeEnum.router : {},
-                ObjTypeEnum.security_group : {},
+                ObjTypeEnum.network: {},
+                ObjTypeEnum.router: {},
+                ObjTypeEnum.security_group: {},
             }
             try:
                 result = self.session.query(TenantObjCache).all()
@@ -262,8 +261,8 @@ class NameCacheHandler(object):
                 for obj in result:
                     if obj.tenant_id not in all_subobj_dict[obj.obj_type]:
                         all_subobj_dict[obj.obj_type] = {
-                            obj.tenant_id : {
-                                obj.id : obj.name_nospace
+                            obj.tenant_id: {
+                                obj.id: obj.name_nospace
                             }
                         }
                     else:
