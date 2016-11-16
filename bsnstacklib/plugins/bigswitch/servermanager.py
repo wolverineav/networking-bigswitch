@@ -582,10 +582,10 @@ class ServerPool(object):
             return data
 
         if 'tenants' in data:
-            for tenant_namecache in all_tenants_dict:
-                if tenant_namecache['id'] in data['tenants']:
-                    data['tenants'][tenant_namecache['id']] = \
-                        tenant_namecache.name_nospace
+            for tenant_id in all_tenants_dict:
+                if tenant_id in data['tenants']:
+                    data['tenants'][tenant_id] = all_tenants_dict[tenant_id]
+
         if 'networks' in data:
             for network in data['networks']:
                 if 'name' in network and ' ' in network['name']:
