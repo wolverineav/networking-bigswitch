@@ -559,12 +559,6 @@ class ServerPool(object):
         names of objects with its corresponding names without spaces.
         '''
 
-        def _get_subobj(all_objs, tenant_id, obj_id):
-            for obj in all_objs:
-                if obj.id == obj_id and obj.tenant_id == tenant_id:
-                    return obj
-            return None
-
         def _get_subobj_name(obj_type, subobj, all_subobjs):
             try:
                 name_nospace = (all_subobjs[obj_type]
