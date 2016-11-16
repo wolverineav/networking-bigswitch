@@ -553,6 +553,74 @@ class ServerPool(object):
             handler.put_hash(new)
             time.sleep(2)
 
+    def _sanitize_names_for_topo_sync(self, data):
+        '''
+        When performing a complete topo sync operation, we need to replace all
+        names of objects with its corresponding names without spaces.
+        '''
+
+        def _get_subobj(all_objs, tenant_id, obj_id):
+            for obj in all_objs:
+                if obj.id == obj_id and obj.tenant_id == tenant_id:
+                    return obj
+            return None
+
+        def _get_subobj_name(obj_type, subobj, all_subobjs):
+            try:
+                name_nospace = (all_subobjs[obj_type]
+                                [subobj['tenant_id']]
+                                [subobj['id']])
+                return name_nospace
+            except Exception as e:
+                return subobj['name']
+
+
+        all_tenants_dict = self.namecachedb.get_all_tenants()
+        all_subobj_dict = self.namecachedb.get_all_tenant_subobj()
+        if not all_tenants_dict:
+            LOG.debug('Tenant namecache is empty.')
+            return data
+
+        if 'tenants' in data:
+            for tenant_namecache in all_tenants_dict:
+                if tenant_namecache['id'] in data['tenants']:
+                    data['tenants'][tenant_namecache['id']] = \
+                        tenant_namecache.name_nospace
+        if 'networks' in data:
+            for network in data['networks']:
+                if 'name' in network and ' ' in network['name']:
+                    network['name'] = _get_subobj_name(ObjTypeEnum.network,
+                                                       network,
+                                                       all_subobj_dict)
+
+                if 'tenant_name' in network and ' ' in network['tenant_name']:
+                    if network['tenant_id'] in all_tenants_dict:
+                        network['tenant_name'] = \
+                            all_tenants_dict[network['tenant_id']]
+
+        if 'routers' in data:
+            for router in data['routers']:
+                if 'name' in router and ' ' in router['name']:
+                    router['name'] = _get_subobj_name(ObjTypeEnum.router,
+                                                      router, all_subobj_dict)
+
+                if 'tenant_name' in router and ' ' in router['tenant_name']:
+                    if router['tenant_id'] in all_tenants_dict:
+                        router['tenant_name'] = \
+                            all_tenants_dict[router['tenant_id']]
+
+        if 'security-groups' in data:
+            for sg in data['security-groups']:
+                if 'name' in sg and ' ' in sg['name']:
+                    sg['name'] = _get_subobj_name(ObjTypeEnum.security_group,
+                                                  sg, all_subobj_dict)
+
+                if 'tenant_name' in sg and ' ' in sg['tenant_name']:
+                    if sg['tenant_id'] in all_tenants_dict:
+                        sg['tenant_name'] = all_tenants_dict[sg['tenant_id']]
+
+        return data
+
     def rest_call(self, action, resource, data, headers, ignore_codes,
                   timeout=False):
         context = self.get_context_ref()
@@ -568,7 +636,8 @@ class ServerPool(object):
                 tenant_namecache = self.namecachedb.get_tenant(cdict['tenant'])
                 if not tenant_namecache:
                     raise namecache_db.TenantcacheMissingException(
-                        tenant_name=cdict['tenant_name'])
+                        obj_type=ObjTypeEnum.tenant,
+                        obj_name=cdict['tenant_name'])
                 cdict['tenant_name'] = tenant_namecache.name_nospace
             headers[REQ_CONTEXT_HEADER] = jsonutils.dumps(cdict)
         hash_handler = cdb.HashHandler()
@@ -607,14 +676,7 @@ class ServerPool(object):
                     if data:
                         # topo sync contains tenants. replace name with name
                         # without spaces
-                        if 'tenants' in data:
-                            all_tenants_namecache = (self.namecachedb.
-                                                     get_all_tenants())
-                            for tenant_namecache in all_tenants_namecache:
-                                if tenant_namecache.id in data['tenants']:
-                                    data['tenants'][tenant_namecache.id] = \
-                                        tenant_namecache.name_nospace
-
+                        data = self._sanitize_names_for_topo_sync(data)
                         ret_ts = active_server.rest_call('POST', TOPOLOGY_PATH,
                                                          data, timeout=None)
                         if self.server_failure(ret_ts, ignore_codes):
@@ -733,7 +795,7 @@ class ServerPool(object):
             tenant_namecache = self.namecachedb.get_tenant(router['tenant_id'])
             if not tenant_namecache:
                 raise namecache_db.TenantcacheMissingException(
-                    tenant_name=router['tenant_name'])
+                    obj_type=ObjTypeEnum.tenant, obj_name=cdict['tenant_name'])
             router['tenant_name'] = tenant_namecache.name_nospace
 
         resource = ROUTER_RESOURCE_PATH % tenant_id
@@ -747,7 +809,7 @@ class ServerPool(object):
             tenant_namecache = self.namecachedb.get_tenant(router['tenant_id'])
             if not tenant_namecache:
                 raise namecache_db.TenantcacheMissingException(
-                    tenant_name=router['tenant_name'])
+                    obj_type=ObjTypeEnum.tenant, obj_name=cdict['tenant_name'])
             router['tenant_name'] = tenant_namecache.name_nospace
 
         resource = ROUTERS_PATH % (tenant_id, router_id)
@@ -786,7 +848,7 @@ class ServerPool(object):
                 network['tenant_id'])
             if not tenant_namecache:
                 raise namecache_db.TenantcacheMissingException(
-                    tenant_name=network['tenant_name'])
+                    obj_type=ObjTypeEnum.tenant, obj_name=cdict['tenant_name'])
             network['tenant_name'] = tenant_namecache.name_nospace
 
         resource = NET_RESOURCE_PATH % tenant_id
@@ -802,7 +864,7 @@ class ServerPool(object):
                 ObjTypeEnum.network, net_id)
             if not network_namecache:
                 raise namecache_db.TenantcacheMissingException(
-                    tenant_name=network['tenant_name'])
+                    obj_type=ObjTypeEnum.tenant, obj_name=cdict['tenant_name'])
             network_name = network_namecache.name_nospace
             network['name'] = network_name
 
@@ -830,7 +892,7 @@ class ServerPool(object):
             tenant_namecache = self.namecachedb.get_tenant(sg['tenant_id'])
             if tenant_namecache:
                 raise namecache_db.TenantcacheMissingException(
-                    tenant_name=sg['tenant_name'])
+                    obj_type=ObjTypeEnum.tenant, obj_name=cdict['tenant_name'])
             sg['tenant_name'] = tenant_namecache.name_nospace
 
         resource = SECURITY_GROUP_RESOURCE_PATH

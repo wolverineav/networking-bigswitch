@@ -80,13 +80,15 @@ class NamecacheDeleteException(exceptions.NeutronException):
         super(NamecacheDeleteException, self).__init__(**kwargs)
 
 
-class TenantcacheMissingException(exceptions.NeutronException):
-    message = _("Missing namecache mapping for tenant named: %(tenant_name)s.")
+class NamecacheMissingException(exceptions.NeutronException):
+    message = _("Missing namecache mapping for %(obj_type)s named: "
+                "%(obj_name)s.")
     status = None
 
     def __init__(self, **kwargs):
-        self.obj_type = kwargs.get('tenant_name')
-        super(TenantcacheMissingException, self).__init__(**kwargs)
+        self.obj_type = kwargs.get('obj_type')
+        self.obj_name = kwargs.get('obj_name')
+        super(NamecacheMissingException, self).__init__(**kwargs)
 
 
 class ObjTypeEnum(Enum):
@@ -97,8 +99,6 @@ class ObjTypeEnum(Enum):
 
 
 class TenantCache(model_base.BASEV2):
-    # TODO(wolverineav) do a proper fix for this setup and clear db hack
-    _TEST_TABLE_SETUP = None
     '''
     This table is used to cache names of tenants with space in their name.
     '''
@@ -225,9 +225,12 @@ class NameCacheHandler(object):
         with self.session.begin(subtransactions=True):
             try:
                 result = self.session.query(TenantCache).all()
-                return result
+                tenant_dict = {}
+                for tenant in result:
+                    tenant_dict[tenant.id] = tenant.name_nospace
+                return tenant_dict
             except Exception:
-                return []
+                return {}
 
     def get_tenant_subobj(self, obj_type, obj_id):
         # try and return the mapping if available:
@@ -245,6 +248,31 @@ class NameCacheHandler(object):
             except Exception as e:
                 LOG.debug('exception while get %s' % str(e))
                 return None
+
+    def get_all_tenant_subobj(self):
+        with self.session.begin(subtransactions=True):
+            all_subobj_dict = {
+                ObjTypeEnum.network : {},
+                ObjTypeEnum.router : {},
+                ObjTypeEnum.security_group : {},
+            }
+            try:
+                result = self.session.query(TenantObjCache).all()
+
+                for obj in result:
+                    if obj.tenant_id not in all_subobj_dict[obj.obj_type]:
+                        all_subobj_dict[obj.obj_type] = {
+                            obj.tenant_id : {
+                                obj.id : obj.name_nospace
+                            }
+                        }
+                    else:
+                        all_subobj_dict[obj.obj_type][obj.tenant_id][obj.id]\
+                            = obj.name_nospace
+
+                return all_subobj_dict
+            except Exception:
+                return all_subobj_dict
 
     def delete_tenant(self, tenant_id):
         with self.session.begin(subtransactions=True):
