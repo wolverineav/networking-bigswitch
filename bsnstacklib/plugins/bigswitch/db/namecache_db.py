@@ -121,7 +121,7 @@ class TenantObjCache(model_base.BASEV2):
                          primary_key=True)
     # uuid for the given obj type
     id = sa.Column(sa.String(36), nullable=False, primary_key=True)
-    tenant_id = sa.Column(sa.Integer,
+    tenant_id = sa.Column(sa.String(36),
                           sa.ForeignKey('bsn_tenant_namecache.id',
                                         ondelete="CASCADE"),
                           primary_key=True)
