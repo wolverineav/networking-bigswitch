@@ -28,6 +28,9 @@ from oslo_log import log as logging
 from oslo_utils import excutils
 
 from neutron.api import extensions as neutron_extensions
+from neutron.callbacks import events
+from neutron.callbacks import registry
+from neutron.callbacks import resources
 from neutron.db import api as db
 from neutron.db import l3_db
 from neutron.extensions import l3
@@ -72,24 +75,42 @@ class L3RestProxy(cplugin.NeutronRestProxyV2Base,
         neutron_extensions.append_api_extensions_path(extensions.__path__)
         super(L3RestProxy, self).__init__()
         self.servers = servermanager.ServerPool.get_instance()
+        self.subscribe_l3_callbacks()
+        # upstream stores this as part of the safe_creation method
+        # we don't have access to that local variable. hence we need to stash
+        # it when it comes as part of before_create_callback
+        self.last_router_create_id = None
+        self.last_router_interface_create_id = None
 
-    @put_context_in_serverpool
+    def subscribe_l3_callbacks(self):
+        registry.subscribe(self.router_before_create_callback, resources.ROUTER,
+                           events.BEFORE_CREATE)
+        registry.subscribe(self.router_after_create_callback, resources.ROUTER,
+                           events.AFTER_CREATE)
+        registry.subscribe(self.router_precommit_delete_callback,
+                           resources.ROUTER, events.PRECOMMIT_DELETE)
+        registry.subscribe(self.router_after_delete_callback, resources.ROUTER,
+                           events.AFTER_DELETE)
+        registry.subscribe(self.router_interface_before_create_callback,
+                           resources.ROUTER_INTERFACE, events.BEFORE_CREATE)
+        registry.subscribe(self.router_interface_after_create_callback,
+                           resources.ROUTER_INTERFACE, events.AFTER_CREATE)
+
     @log_helper.log_method_call
-    def create_router(self, context, router):
-        self._warn_on_state_status(router['router'])
+    def router_before_create_callback(self, resource, event, trigger,
+                                      **kwargs):
+        """Try to create router on BCF
 
-        tenant_id = Util.get_tenant_id_for_create(context, router["router"])
+        If failed, rollback the DB operation.
 
-        # set default router policies
-        default_policy_dict = self._get_tenant_default_router_policy(tenant_id)
-
-        with db.context_manager.writer.using(context):
-            # create router in DB
-            # TODO(wolverineav): hack until fixed at right place
-            setattr(context, 'GUARD_TRANSACTION', False)
-            new_router = super(L3RestProxy, self).create_router(context,
-                                                                router)
-            mapped_router = self._map_tenant_name(new_router)
+        :return:
+        """
+        context = kwargs.get('context')
+        router = kwargs.get('router')
+        tenant_id = Util.get_tenant_id_for_create(context, router)
+        self.last_router_create_id = router['id']
+        with db.context_manager.reader.using(context):
+            mapped_router = self._map_tenant_name(router)
             mapped_router = self._map_state_and_status(mapped_router)
             # populate external tenant_id if it is absent for external network,
             # This is a new work flow in kilo that user can specify external
@@ -106,6 +127,23 @@ class L3RestProxy(cplugin.NeutronRestProxyV2Base,
 
             self.servers.rest_create_router(tenant_id, mapped_router)
 
+    @log_helper.log_method_call
+    def router_after_create_callback(self, resource, event, trigger, **kwargs):
+        """Create tenant policies for the given router
+
+        :param resource:
+        :param event:
+        :param trigger:
+        :param kwargs:
+        :return:
+        """
+        context = kwargs.get('context')
+        router = kwargs.get('router')
+        tenant_id = router['tenant_id']
+        # set default router policies
+        default_policy_dict = self._get_tenant_default_router_policy(tenant_id)
+
+        with db.context_manager.writer.using(context):
             # post router creation, create default policy if missing
             tenantpolicy_dict = super(L3RestProxy, self).create_default_policy(
                 context, tenant_id, default_policy_dict)
@@ -113,32 +151,75 @@ class L3RestProxy(cplugin.NeutronRestProxyV2Base,
                 self.servers.rest_create_tenantpolicy(
                     tenantpolicy_dict['tenant_id'], tenantpolicy_dict)
 
-            # return created router
+    @put_context_in_serverpool
+    @log_helper.log_method_call
+    def create_router(self, context, router):
+        self._warn_on_state_status(router['router'])
+
+        tenant_id = Util.get_tenant_id_for_create(context, router['router'])
+        try:
+            new_router = super(L3RestProxy, self).create_router(context,
+                                                                router)
             return new_router
+        except Exception:
+            with excutils.save_and_reraise_exception():
+                try:
+                    self.servers.rest_delete_router(
+                        tenant_id, self.last_router_create_id)
+                except Exception as e:
+                    LOG.error(_LE("Cannot clean up created object on BCF"
+                                  " %(obj)s. Exception: %(exc)s"),
+                              {'obj': self.last_router_create_id, 'exc': e})
 
     @put_context_in_serverpool
     @log_helper.log_method_call
     def update_router(self, context, router_id, router):
         self._warn_on_state_status(router['router'])
 
-        orig_router = super(L3RestProxy, self).get_router(context, router_id)
-        tenant_id = orig_router["tenant_id"]
-        with db.context_manager.writer.using(context):
-            setattr(context, 'GUARD_TRANSACTION', False)
-            new_router = super(L3RestProxy,
-                               self).update_router(context, router_id, router)
+        new_router = super(L3RestProxy,
+                           self).update_router(context, router_id, router)
+
+        # in case of update_router, we don't split BCF operations into
+        # a callback, since this pretty much is the only thing here after
+        # the transaction is committed
+        with db.context_manager.reader.using(context):
             router = self._update_ext_gateway_info(context, new_router)
-
             # update router on network controller
-            self.servers.rest_update_router(tenant_id, router, router_id)
+            self.servers.rest_update_router(new_router['tenant_id'], router,
+                                            router_id)
+        # return updated router
+        return new_router
 
-            # return updated router
-            return new_router
+    @log_helper.log_method_call
+    def router_precommit_delete_callback(self, resource, event, trigger,
+                                         **kwargs):
+        router = kwargs.get('router_db')
+        router_id = kwargs.get('router_id')
+
+        # delete from network controller
+        self.servers.rest_delete_router(router['tenant_id'], router_id)
+
+    @log_helper.log_method_call
+    def router_after_delete_callback(self, resource, event, trigger, **kwargs):
+        context = kwargs.get('context')
+        orig_router = kwargs.get('original')
+        tenant_id = orig_router['tenant_id']
+
+        # remove tenant policies if this was the last router under tenant
+        with db.context_manager.writer.using(context):
+            upstream_routers = super(L3RestProxy, self).get_routers(
+                context, filters={"tenant_id": [tenant_id]})
+
+            LOG.debug('upstream_routers are: %s' % upstream_routers)
+            if not upstream_routers:
+                # there aren't any routers under tenant. remove all policies
+                super(L3RestProxy, self).remove_default_policy(context,
+                                                               tenant_id)
 
     @put_context_in_serverpool
     @log_helper.log_method_call
     def delete_router(self, context, router_id):
-        with db.context_manager.writer.using(context):
+        with db.context_manager.reader.using(context):
             orig_router = self._get_router(context, router_id)
             tenant_id = orig_router["tenant_id"]
 
@@ -156,40 +237,28 @@ class L3RestProxy(cplugin.NeutronRestProxyV2Base,
                                          filters=device_filter)
             if ports:
                 raise l3.RouterInUse(router_id=router_id)
-            # TODO(wolverineav): hack until fixed at right place
-            setattr(context, 'GUARD_TRANSACTION', False)
-            super(L3RestProxy, self).delete_router(context, router_id)
 
-            # delete from network controller
-            self.servers.rest_delete_router(tenant_id, router_id)
+        super(L3RestProxy, self).delete_router(context, router_id)
 
-            # remove tenant policies if this was the last router under tenant
-            upstream_routers = super(L3RestProxy, self).get_routers(
-                context, filters={"tenant_id": [tenant_id]})
-
-            LOG.debug('upstream_routers are: %s' % upstream_routers)
-            if not upstream_routers:
-                # there aren't any routers under tenant. remove all policies
-                super(L3RestProxy, self).remove_default_policy(context,
-                                                               tenant_id)
-
-    @put_context_in_serverpool
     @log_helper.log_method_call
-    def add_router_interface(self, context, router_id, interface_info):
-        # Validate args
-        router = self._get_router(context, router_id)
-        tenant_id = router['tenant_id']
+    def router_interface_before_create_callback(self, resource, event, trigger,
+                                                **kwargs):
+        context = kwargs.get('context')
+        router = kwargs.get('router_db')
+        port = kwargs.get('port')
+        interface_info = kwargs.get('interface_info')
+        router_id = kwargs.get('router_id')
 
-        with db.context_manager.writer.using(context):
-            # create interface in DB
-            # TODO(wolverineav): hack until fixed at right place
-            setattr(context, 'GUARD_TRANSACTION', False)
-            new_intf_info = super(L3RestProxy,
-                                  self).add_router_interface(context,
-                                                             router_id,
-                                                             interface_info)
-            port = self._get_port(context, new_intf_info['port_id'])
-            subnet_id = new_intf_info['subnet_id']
+        if 'port_id' in interface_info:
+            subnet_id = port['fixed_ips'][0]['subnet_id']
+        elif 'subnet_id' in interface_info:
+            subnet_id = interface_info['subnet_id']
+        else:
+            msg = _("Either subnet_id or port_id must be specified")
+            raise exceptions.BadRequest(resource='router', msg=msg)
+        # bookmark for delete in case of transaction rollback
+        self.last_router_interface_create_id = subnet_id
+        with db.context_manager.reader.using(context):
             # we will use the port's subnet id as interface's id
             intf_details = self._get_router_intf_details(context,
                                                          subnet_id)
@@ -199,46 +268,72 @@ class L3RestProxy(cplugin.NeutronRestProxyV2Base,
                 intf_details['ip_address'] = port["fixed_ips"][0]['ip_address']
 
             # create interface on the network controller
-            self.servers.rest_add_router_interface(tenant_id, router_id,
-                                                   intf_details)
-        directory.get_plugin().update_port(
-            context, port['id'], {'port': {'status': 'ACTIVE'}})
-        return new_intf_info
+            self.servers.rest_add_router_interface(
+                router['tenant_id'], router_id, intf_details)
+
+    @log_helper.log_method_call
+    def router_interface_after_create_callback(self, resource, event, trigger,
+                                               **kwargs):
+        context = kwargs.get('context')
+        port = kwargs.get('port')
+
+        directory.get_plugin().update_port(context, port['id'],
+                                           {'port': {'status': 'ACTIVE'}})
 
     @put_context_in_serverpool
     @log_helper.log_method_call
-    def remove_router_interface(self, context, router_id, interface_info):
+    def add_router_interface(self, context, router_id, interface_info):
         # Validate args
         router = self._get_router(context, router_id)
         tenant_id = router['tenant_id']
 
-        # we will first get the interface identifier before deleting in the DB
-        if not interface_info:
-            msg = _("Either subnet_id or port_id must be specified")
-            raise exceptions.BadRequest(resource='router', msg=msg)
-        if 'port_id' in interface_info:
-            port = self._get_port(context, interface_info['port_id'])
-            interface_id = port['fixed_ips'][0]['subnet_id']
-        elif 'subnet_id' in interface_info:
-            subnet = self._get_subnet(context, interface_info['subnet_id'])
-            interface_id = subnet['id']
-        else:
-            msg = _("Either subnet_id or port_id must be specified")
-            raise exceptions.BadRequest(resource='router', msg=msg)
+        try:
+            new_intf_info = super(L3RestProxy, self).add_router_interface(
+                context, router_id, interface_info)
+            return new_intf_info
+        except Exception:
+            with excutils.save_and_reraise_exception():
+                try:
+                    # we use port's subnet_id as interface's id
+                    self.servers.rest_remove_router_interface(
+                        tenant_id, router_id,
+                        self.last_router_interface_create_id)
+                except Exception as e:
+                    LOG.error(_LE("Cannot clean up created object on BCF"
+                                  " %(obj)s. Exception: %(exc)s"),
+                              {'obj': self.last_router_interface_create_id,
+                               'exc': e})
 
-        with db.context_manager.writer.using(context):
-            # remove router in DB
-            # TODO(wolverineav): hack until fixed at right place
-            setattr(context, 'GUARD_TRANSACTION', False)
-            del_ret = super(L3RestProxy,
-                            self).remove_router_interface(context,
-                                                          router_id,
-                                                          interface_info)
+    @put_context_in_serverpool
+    @log_helper.log_method_call
+    def remove_router_interface(self, context, router_id, interface_info):
+        with db.context_manager.reader.using(context):
+            # Validate args
+            router = self._get_router(context, router_id)
+            tenant_id = router['tenant_id']
 
-            # create router on the network controller
-            self.servers.rest_remove_router_interface(tenant_id, router_id,
-                                                      interface_id)
-            return del_ret
+            # we'll first get the interface identifier before deleting from DB
+            if not interface_info:
+                msg = _("Either subnet_id or port_id must be specified")
+                raise exceptions.BadRequest(resource='router', msg=msg)
+            if 'port_id' in interface_info:
+                port = self._get_port(context, interface_info['port_id'])
+                interface_id = port['fixed_ips'][0]['subnet_id']
+            elif 'subnet_id' in interface_info:
+                subnet = self._get_subnet(context, interface_info['subnet_id'])
+                interface_id = subnet['id']
+            else:
+                msg = _("Either subnet_id or port_id must be specified")
+                raise exceptions.BadRequest(resource='router', msg=msg)
+
+        del_ret = super(L3RestProxy, self).remove_router_interface(
+            context, router_id, interface_info)
+
+        # remove router interface on the network controller
+        # there is no pre-delete method to include this. its always post
+        self.servers.rest_remove_router_interface(tenant_id, router_id,
+                                                  interface_id)
+        return del_ret
 
     # add floating_port_id into the dict for later port mac lookup
     def _make_floatingip_dict(self, floatingip, fields=None,
@@ -251,16 +346,13 @@ class L3RestProxy(cplugin.NeutronRestProxyV2Base,
 
     @put_context_in_serverpool
     @log_helper.log_method_call
-    def create_floatingip(self, context, floatingip):
-        with db.context_manager.writer.using(context):
-            # create floatingip in DB
-            # TODO(wolverineav): hack until fixed at right place
-            setattr(context, 'GUARD_TRANSACTION', False)
-            new_fl_ip = super(L3RestProxy,
-                              self).create_floatingip(context, floatingip)
-
-            # create floatingip on the network controller
-            try:
+    def create_floatingip(self, context, floatingip,
+                          initial_status=lib_constants.FLOATINGIP_STATUS_ACTIVE):
+        new_fl_ip = super(L3RestProxy, self).create_floatingip(
+            context, floatingip, initial_status)
+        # create floatingip on the network controller
+        try:
+            with db.context_manager.reader.using(context):
                 if 'floatingip' in self.servers.get_capabilities():
                     backend_fip = copy.deepcopy(new_fl_ip)
                     fport = self.get_port(context.elevated(),
@@ -272,29 +364,28 @@ class L3RestProxy(cplugin.NeutronRestProxyV2Base,
                 else:
                     LOG.error(BCF_CAPABILITY_L3_PLUGIN_MISS_MATCH)
                     self._send_floatingip_update(context)
-            except servermanager.RemoteRestError as e:
-                with excutils.save_and_reraise_exception():
-                    LOG.error(
-                        _LE("NeutronRestProxyV2: Unable to create remote "
-                            "floating IP: %s"), e)
-            # return created floating IP
-            return new_fl_ip
+        except servermanager.RemoteRestError as e:
+            with excutils.save_and_reraise_exception():
+                LOG.error(
+                    _LE("L3RestProxy: Unable to create remote "
+                        "floating IP: %s. Will now attempt to delete it."), e)
+                self.delete_floatingip(context, new_fl_ip['id'])
+        # return created floating IP
+        return new_fl_ip
 
     @put_context_in_serverpool
     @log_helper.log_method_call
     def update_floatingip(self, context, id, floatingip):
-        with db.context_manager.writer.using(context):
-            # update floatingip in DB
-            # TODO(wolverineav): hack until fixed at right place
-            setattr(context, 'GUARD_TRANSACTION', False)
-            new_fl_ip = super(L3RestProxy,
-                              self).update_floatingip(context, id, floatingip)
-            # add mac address for the port
-            if new_fl_ip.get('floating_port_id'):
-                fport = self.get_port(context.elevated(),
-                                      new_fl_ip['floating_port_id'])
-                new_fl_ip['floating_mac_address'] = fport.get('mac_address')
+        # update floatingip in DB
+        new_fl_ip = super(L3RestProxy, self).update_floatingip(context, id,
+                                                               floatingip)
+        # add mac address for the port
+        if new_fl_ip.get('floating_port_id'):
+            fport = self.get_port(context.elevated(),
+                                  new_fl_ip['floating_port_id'])
+            new_fl_ip['floating_mac_address'] = fport.get('mac_address')
 
+        try:
             # update network on network controller
             if 'floatingip' in self.servers.get_capabilities():
                 self.servers.rest_update_floatingip(new_fl_ip['tenant_id'],
@@ -302,24 +393,27 @@ class L3RestProxy(cplugin.NeutronRestProxyV2Base,
             else:
                 LOG.error(BCF_CAPABILITY_L3_PLUGIN_MISS_MATCH)
                 self._send_floatingip_update(context)
-            return new_fl_ip
+        except servermanager.RemoteRestError as e:
+            with excutils.save_and_reraise_exception():
+                LOG.error(
+                    _LE("L3RestProxy: Unable to update remote "
+                        "floating IP: %s."), e)
+        return new_fl_ip
 
     @put_context_in_serverpool
     @log_helper.log_method_call
     def delete_floatingip(self, context, id):
-        with db.context_manager.writer.using(context):
-            # delete floating IP in DB
-            # TODO(wolverineav): hack until fixed at right place
-            setattr(context, 'GUARD_TRANSACTION', False)
+        # delete floating IP in DB
+        with db.context_manager.reader.using(context):
             old_fip = super(L3RestProxy, self).get_floatingip(context, id)
-            super(L3RestProxy, self).delete_floatingip(context, id)
+        super(L3RestProxy, self).delete_floatingip(context, id)
 
-            # update network on network controller
-            if 'floatingip' in self.servers.get_capabilities():
-                self.servers.rest_delete_floatingip(old_fip['tenant_id'], id)
-            else:
-                LOG.error(BCF_CAPABILITY_L3_PLUGIN_MISS_MATCH)
-                self._send_floatingip_update(context)
+        # update network on network controller
+        if 'floatingip' in self.servers.get_capabilities():
+            self.servers.rest_delete_floatingip(old_fip['tenant_id'], id)
+        else:
+            LOG.error(BCF_CAPABILITY_L3_PLUGIN_MISS_MATCH)
+            self._send_floatingip_update(context)
 
     @put_context_in_serverpool
     @log_helper.log_method_call

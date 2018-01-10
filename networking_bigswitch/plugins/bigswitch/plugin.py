@@ -431,7 +431,7 @@ class NeutronRestProxyV2Base(db_base_plugin_v2.NeutronDbPluginV2,
         if context is None:
             context = qcontext.get_admin_context()
         # start a sub-transaction to avoid breaking parent transactions
-        with db.context_manager.writer.using(context):
+        with db.context_manager.reader.using(context):
             subnets = self._get_subnets_by_network(context,
                                                    net_id)
         subnets_details = []
