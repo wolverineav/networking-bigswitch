@@ -1,3 +1,5 @@
+#!/bin/bash -eux
+
 git clean -fxd
 GIT_REPO=`pwd`
 
@@ -11,9 +13,8 @@ tar -zxvf $GNUPG_TAR -C $GNUPG_DIR
 
 DOCKER_IMAGE=$DOCKER_REGISTRY'/bosi-builder:latest'
 
-echo "Tagging and uploading to PYPI"
-docker pull $DOCKER_IMAGE
-docker run -e GIT_BRANCH=$GIT_BRANCH -v $GIT_REPO:/networking-bigswitch -v $PYPIRC_FILE:/root/.pypirc -v $GNUPG_DIR/.gnupg:/root/.gnupg $DOCKER_IMAGE /networking-bigswitch/build_packages/upload_to_pypi.sh
+# instead of building package, pull from pypi the latest tar.gz
+
 
 # remove pypi and gpg creds
 sudo rm -rf $GNUPG_DIR
